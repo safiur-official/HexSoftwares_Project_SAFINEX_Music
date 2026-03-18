@@ -2050,7 +2050,19 @@ if(SpeechRecognition){
 recognition = new SpeechRecognition()
 recognition.lang = "en-US"
 recognition.interimResults = true
-recognition.continuous = false
+recognition.continuous = true
+
+recognition.onstart = () => {
+console.log("🎤 STARTED LISTENING")
+}
+
+recognition.onend = () => {
+console.log("🛑 STOPPED LISTENING")
+}
+
+recognition.onerror = (e) => {
+console.log("❌ ERROR:", e.error)
+}
 
 /* ===============================
 🎤 TOGGLE START / STOP
@@ -2070,27 +2082,35 @@ START LISTENING
 =============================== */
 function startListening(){
 
+if(isListening) return
+
 isListening = true
+
+voiceOverlay.classList.add("active")
+voiceText.innerText = "Listening..."
 
 voiceBtn.classList.add("listening")
 voiceBtn.innerHTML = `<i class="fa-solid fa-wave-square"></i>`
 
-/* SHOW OVERLAY */
-voiceOverlay.classList.add("active")
-voiceText.innerText = "Listening..."
-
-navigator.mediaDevices.getUserMedia({ audio: true })
-.then(stream => {
-stream.getTracks().forEach(track => track.stop())
+/* 🔥 DIRECT START FIRST (IMPORTANT) */
+try{
 recognition.start()
+}catch(e){
+console.log("Start error:", e)
+}
+
+/* 🔥 THEN ensure permission */
+navigator.mediaDevices.getUserMedia({ audio: true })
+.then(stream=>{
+stream.getTracks().forEach(track => track.stop())
 })
-.catch(() => {
+.catch(err=>{
+console.log("Permission error:", err)
 stopListening()
-showToast("Allow microphone access ⚠️")
+showToast("Mic permission required")
 })
 
 }
-
 /* ===============================
 STOP LISTENING
 =============================== */
