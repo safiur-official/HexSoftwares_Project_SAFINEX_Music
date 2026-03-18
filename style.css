@@ -146,53 +146,11 @@ display:flex;
 justify-content:center;
 align-items:center;
 z-index:20;
-width:460px;   /* 🔥 keeps layout stable */
+width:420px;   /* 🔥 keeps layout stable */
 max-width:100%;
 }
 
-#voiceSearchBtn{
-position:absolute;
-right:18px;            /* 🔥 more breathing space */
-top:50%;
-transform:translateY(-50%);
-background:none;
-border:none;
-color:#aaa;
-cursor:pointer;
-font-size:16px;
-z-index:30;
-display:flex;
-align-items:center;
-justify-content:center;
-width:28px;
-height:28px;
-border-radius:50%;
-transition:all 0.2s ease;
-}
 
-#voiceSearchBtn:hover{
-background:rgba(255,255,255,0.08);
-color:#ff0033;
-}
-
-#voiceSearchBtn.listening{
-color:#ff0033;
-animation:pulse 1s infinite, glow 1.5s infinite;
-}
-
-/* pulse scale */
-@keyframes pulse{
-0%{transform:translateY(-50%) scale(1)}
-50%{transform:translateY(-50%) scale(1.25)}
-100%{transform:translateY(-50%) scale(1)}
-}
-
-/* glow effect */
-@keyframes glow{
-0%{text-shadow:0 0 5px #ff0033}
-50%{text-shadow:0 0 15px #ff0033}
-100%{text-shadow:0 0 5px #ff0033}
-}
 
 
 .search-bar *{
@@ -215,8 +173,8 @@ pointer-events:none;
 width:420px;
 max-width:100%;
 height:40px;
-padding-left:40px;     /* space for search icon */
-padding-right:70px;    /* space for mic */
+padding-left:40px;   /* keep for search icon */
+padding-right:16px;  
 background:#1c1c1c;
 color:#fff;
 border:1px solid rgba(255,255,255,0.08);
@@ -1407,68 +1365,3 @@ background-position:-200% 0;
 }
 
 
-/* ===============================
-VOICE OVERLAY (YT MUSIC STYLE)
-=============================== */
-.voice-overlay{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.85);
-backdrop-filter:blur(20px);
-display:flex;
-align-items:center;
-justify-content:center;
-z-index:5000;
-
-/* hidden by default */
-opacity:0;
-pointer-events:none;
-transition:opacity 0.3s ease;
-}
-
-.voice-overlay.active{
-opacity:1;
-pointer-events:auto;
-}
-
-/* CENTER BOX */
-.voice-box{
-text-align:center;
-color:white;
-}
-
-/* MIC CIRCLE */
-.voice-mic{
-width:90px;
-height:90px;
-border-radius:50%;
-background:#ff0033;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:32px;
-margin:0 auto 20px;
-box-shadow:0 0 30px rgba(255,0,51,0.6);
-animation:voicePulse 1.2s infinite;
-}
-
-/* PULSE ANIMATION */
-@keyframes voicePulse{
-0%{transform:scale(1)}
-50%{transform:scale(1.2)}
-100%{transform:scale(1)}
-}
-
-/* TEXT */
-#voiceText{
-font-size:22px;
-margin-bottom:6px;
-}
-
-.voice-box p{
-font-size:13px;
-color:#aaa;
-}
