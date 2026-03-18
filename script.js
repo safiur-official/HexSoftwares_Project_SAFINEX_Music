@@ -1541,55 +1541,66 @@ renderFavoriteRow()
 /* ===============================
 HERO RECENT SONG
 =============================== */
-
 function loadHeroSong(){
 
 const recent = JSON.parse(localStorage.getItem("recentSong"))
-if(!recent) return
 
 const heroImage = document.getElementById("heroImage")
 const heroTitle = document.getElementById("heroTitle")
 const heroArtist = document.getElementById("heroArtist")
 const heroPlay = document.getElementById("heroPlay")
+const heroSection = document.querySelector(".hero-recommendation")
 
-/* Update hero UI */
+/* ===============================
+🆕 NEW USER (NO HISTORY)
+=============================== */
+if(!recent){
+
+const hour = new Date().getHours()
+
+let greeting = "Welcome"
+if(hour < 12) greeting = "Good Morning ☀️"
+else if(hour < 17) greeting = "Good Afternoon 🌤️"
+else greeting = "Good Evening 🌙"
+
+/* 🔥 Replace Hero UI */
+heroSection.innerHTML = `
+<div class="welcome-card">
+<h2>${greeting}</h2>
+<h3>Welcome to Safinex Music 🎧</h3>
+<p>Discover songs, artists and playlists made for you.</p>
+<button id="startExplore">Start Exploring</button>
+</div>
+`
+
+/* CTA */
+document.getElementById("startExplore").onclick = () => {
+navigate("explore")
+}
+
+return
+}
+
+/* ===============================
+🎵 EXISTING USER (NORMAL FLOW)
+=============================== */
 
 heroImage.src = recent.cover
 heroTitle.textContent = recent.title
 heroArtist.textContent = recent.artist
 
-/* Hero background blur */
-
 if(bgBlur){
 bgBlur.style.backgroundImage = `url(${recent.cover})`
 }
 
-/* Play button */
-
 if(heroPlay){
 heroPlay.onclick = () => {
-
 const index = songs.findIndex(song => song.id === recent.id)
-
 if(index !== -1){
-
 currentSong = index
-
 loadSong(index)
-
-/* resume progress */
-
-const progressMemory =
-JSON.parse(localStorage.getItem("songProgress")) || {}
-
-if(progressMemory[recent.id]){
-audio.currentTime = progressMemory[recent.id]
-}
-
 audio.play()
-
 }
-
 }
 }
 

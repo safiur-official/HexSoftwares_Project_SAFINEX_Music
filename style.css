@@ -745,20 +745,25 @@ display:none;
 }
 
 /* ===============================
-   CATEGORY BAR (STICKY)
+   CATEGORY BAR 
 ================================= */
 .category-bar{
-transition:opacity .25s ease, transform .25s ease;
-z-index:900;
-background:rgba(15,15,15,0.95);
-backdrop-filter:blur(20px);
-padding:12px 0 14px 0;
 display:flex;
 gap:10px;
-box-shadow:0 10px 25px rgba(0,0,0,0.5);
-border-bottom:1px solid rgba(255,255,255,0.05);
-margin-bottom:24px;
+margin-bottom:20px;
+padding:4px 0;
+
+/* 🔥 REMOVE BLOCK FEEL */
+background:transparent;
+backdrop-filter:none;
+box-shadow:none;
+border:none;
+
+/* 🔥 smooth horizontal scroll */
+overflow-x:auto;
+scroll-behavior:smooth;
 }
+
 .category-bar::-webkit-scrollbar{
 display:none;
 }
@@ -787,7 +792,7 @@ align-items:center;
 gap:25px;
 padding:25px;
 margin-top:10px;
-margin-bottom:35px;
+margin-bottom:20px;
 background:#1c1c1c;
 border-radius:12px;
 }
@@ -1181,21 +1186,27 @@ transform:translateY(-9px) rotate(-45deg);
 
 /* chip buttons */
 .chip{
-background:#1b1b1b;
-border:none;
+background:rgba(255,255,255,0.05);
+border:1px solid rgba(255,255,255,0.08);
 padding:6px 14px;
 border-radius:20px;
 color:#ddd;
 cursor:pointer;
 font-size:13px;
-transition:0.2s;
+transition:all 0.2s ease;
+white-space:nowrap;
 }
+
+/* hover */
 .chip:hover{
-background:#2b2b2b;
+background:rgba(255,255,255,0.12);
 }
+
+/* active (YouTube style) */
 .chip.active{
-background:#ff0033;
-color:#fff;
+background:#fff;
+color:#000;
+border:none;
 }
 /* ===============================
 SIDEBAR CONTAINER
@@ -1438,3 +1449,56 @@ background-position:-200% 0;
 }
 
 
+/* ===============================
+WELCOME CARD (NEW USER)
+=============================== */
+
+.welcome-card{
+width:100%;
+padding:30px;
+border-radius:14px;
+background:linear-gradient(
+135deg,
+rgba(255,0,51,0.15),
+rgba(0,0,0,0.4)
+);
+backdrop-filter:blur(20px);
+text-align:left;
+animation:fadeIn 0.5s ease;
+}
+
+.welcome-card h2{
+font-size:14px;
+color:#aaa;
+margin-bottom:6px;
+}
+
+.welcome-card h3{
+font-size:24px;
+margin-bottom:10px;
+}
+
+.welcome-card p{
+color:#bbb;
+margin-bottom:15px;
+font-size:14px;
+}
+
+.welcome-card button{
+background:#ff0033;
+border:none;
+padding:10px 18px;
+border-radius:20px;
+color:white;
+cursor:pointer;
+transition:0.2s;
+}
+
+.welcome-card button:hover{
+opacity:0.85;
+}
+
+@keyframes fadeIn{
+from{opacity:0; transform:translateY(10px)}
+to{opacity:1; transform:translateY(0)}
+}
