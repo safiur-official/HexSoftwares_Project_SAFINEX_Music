@@ -1406,3 +1406,69 @@ background-position:-200% 0;
 
 }
 
+
+/* ===============================
+VOICE OVERLAY (YT MUSIC STYLE)
+=============================== */
+.voice-overlay{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.85);
+backdrop-filter:blur(20px);
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:5000;
+
+/* hidden by default */
+opacity:0;
+pointer-events:none;
+transition:opacity 0.3s ease;
+}
+
+.voice-overlay.active{
+opacity:1;
+pointer-events:auto;
+}
+
+/* CENTER BOX */
+.voice-box{
+text-align:center;
+color:white;
+}
+
+/* MIC CIRCLE */
+.voice-mic{
+width:90px;
+height:90px;
+border-radius:50%;
+background:#ff0033;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:32px;
+margin:0 auto 20px;
+box-shadow:0 0 30px rgba(255,0,51,0.6);
+animation:voicePulse 1.2s infinite;
+}
+
+/* PULSE ANIMATION */
+@keyframes voicePulse{
+0%{transform:scale(1)}
+50%{transform:scale(1.2)}
+100%{transform:scale(1)}
+}
+
+/* TEXT */
+#voiceText{
+font-size:22px;
+margin-bottom:6px;
+}
+
+.voice-box p{
+font-size:13px;
+color:#aaa;
+}

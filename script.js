@@ -2032,7 +2032,8 @@ queuePanel.classList.remove("active")
 /* ===============================
 🎙️ PREMIUM VOICE SEARCH (YT MUSIC STYLE)
 =============================== */
-
+const voiceOverlay = document.getElementById("voiceOverlay")
+const voiceText = document.getElementById("voiceText")
 document.addEventListener("DOMContentLoaded", () => {
 
 const voiceBtn = document.getElementById("voiceSearchBtn")
@@ -2074,19 +2075,19 @@ isListening = true
 voiceBtn.classList.add("listening")
 voiceBtn.innerHTML = `<i class="fa-solid fa-wave-square"></i>`
 
+/* SHOW OVERLAY */
+voiceOverlay.classList.add("active")
+voiceText.innerText = "Listening..."
 
 navigator.mediaDevices.getUserMedia({ audio: true })
 .then(stream => {
-stream.getTracks().forEach(track => track.stop()) // 🔥 release mic
+stream.getTracks().forEach(track => track.stop())
 recognition.start()
 })
-.catch(err => {
-console.error("Permission error:", err)
-showToast("Enable microphone permission ⚠️")
+.catch(() => {
 stopListening()
+showToast("Allow microphone access ⚠️")
 })
-
-recognition.start()
 
 }
 
@@ -2100,6 +2101,9 @@ isListening = false
 voiceBtn.classList.remove("listening")
 voiceBtn.innerHTML = `<i class="fa-solid fa-microphone"></i>`
 
+/* HIDE OVERLAY */
+voiceOverlay.classList.remove("active")
+
 recognition.stop()
 
 }
@@ -2108,7 +2112,7 @@ recognition.stop()
 RESULT (LIVE LIKE YT MUSIC)
 =============================== */
 recognition.onresult = (event) => {
-
+voiceText.innerText = transcript || "Listening..."
 let transcript = ""
 
 for(let i = event.resultIndex; i < event.results.length; i++){
@@ -2122,6 +2126,11 @@ searchInput.value = transcript
 if(event.results[0].isFinal){
 performSearch(transcript)
 stopListening()
+
+voiceOverlay.onclick = () => {
+stopListening()
+}
+
 }
 
 }
