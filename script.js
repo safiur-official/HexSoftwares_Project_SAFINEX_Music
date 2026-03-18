@@ -1169,39 +1169,39 @@ SEARCH
 const searchInput = document.getElementById("searchInput")
 
 /* ===============================
-DYNAMIC SEARCH PLACEHOLDER
+SLIDE PLACEHOLDER LOOP
 =============================== */
-const placeholderTexts = [
+
+const fakePlaceholder = document.getElementById("fakePlaceholder")
+
+const texts = [
 "Search songs...",
 "Search artists...",
 "Search albums..."
 ]
 
-let placeholderIndex = 0
-let placeholderInterval
+let i = 0
 
-function startPlaceholderLoop(){
+setInterval(() => {
 
-placeholderInterval = setInterval(() => {
-
-/* 🔥 STOP if user typing */
+/* stop if user typing */
 if(searchInput.value.length > 0) return
 
-placeholderIndex = (placeholderIndex + 1) % placeholderTexts.length
-
-searchInput.style.opacity = 0
+/* slide up */
+fakePlaceholder.classList.add("slide-up")
 
 setTimeout(() => {
-searchInput.placeholder = placeholderTexts[placeholderIndex]
-searchInput.style.opacity = 1
-}, 200)
 
-}, 2000)
+i = (i + 1) % texts.length
+fakePlaceholder.textContent = texts[i]
 
-}
+/* reset */
+fakePlaceholder.classList.remove("slide-up")
+fakePlaceholder.classList.add("slide-in")
 
-/* START LOOP */
-startPlaceholderLoop()
+}, 300)
+
+}, 2500)
 
 searchInput.addEventListener("input",()=>{
 if(!searchResults) return
