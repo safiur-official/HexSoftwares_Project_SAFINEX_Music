@@ -1,4 +1,3 @@
-
 /* ===============================
 AUDIO PLAYER OBJECT
 =============================== */
@@ -1166,42 +1165,43 @@ return mins+":"+(secs<10?"0"+secs:secs)
 SEARCH
 =============================== */
 
+
 const searchInput = document.getElementById("searchInput")
 
 /* ===============================
-SLIDE PLACEHOLDER LOOP
+DYNAMIC SEARCH PLACEHOLDER
 =============================== */
-
-const fakePlaceholder = document.getElementById("fakePlaceholder")
-
-const texts = [
+const placeholderTexts = [
 "Search songs...",
 "Search artists...",
 "Search albums..."
 ]
 
-let i = 0
+let placeholderIndex = 0
+let placeholderInterval
 
-setInterval(() => {
+function startPlaceholderLoop(){
 
-/* stop if user typing */
+placeholderInterval = setInterval(() => {
+
+/* 🔥 STOP if user typing */
 if(searchInput.value.length > 0) return
 
-/* slide up */
-fakePlaceholder.classList.add("slide-up")
+placeholderIndex = (placeholderIndex + 1) % placeholderTexts.length
+
+searchInput.style.opacity = 0
 
 setTimeout(() => {
+searchInput.placeholder = placeholderTexts[placeholderIndex]
+searchInput.style.opacity = 1
+}, 200)
 
-i = (i + 1) % texts.length
-fakePlaceholder.textContent = texts[i]
+}, 2000)
 
-/* reset */
-fakePlaceholder.classList.remove("slide-up")
-fakePlaceholder.classList.add("slide-in")
+}
 
-}, 300)
-
-}, 2500)
+/* START LOOP */
+startPlaceholderLoop()
 
 searchInput.addEventListener("input",()=>{
 if(!searchResults) return
@@ -2061,4 +2061,5 @@ queuePanel.classList.remove("active")
 }
 
 })
+
 

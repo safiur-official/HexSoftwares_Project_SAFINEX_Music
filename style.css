@@ -152,7 +152,6 @@ max-width:100%;
 
 
 
-
 .search-bar *{
 pointer-events:auto;
 }
@@ -174,7 +173,7 @@ width:420px;
 max-width:100%;
 height:40px;
 padding-left:40px;   /* keep for search icon */
-padding-right:16px;  
+padding-right:16px;  /* 🔥 reduced (mic removed) */
 background:#1c1c1c;
 color:#fff;
 border:1px solid rgba(255,255,255,0.08);
@@ -191,39 +190,6 @@ transition: opacity 0.3s ease;
 border-color:#ff0033;
 box-shadow:0 0 0 2px rgba(255,0,51,0.15);
 }
-
-/* ===============================
-SLIDE PLACEHOLDER (PREMIUM)
-=============================== */
-
-.fake-placeholder{
-position:absolute;
-left:40px;
-top:50%;
-transform:translateY(-50%);
-color:#aaa;
-font-size:14px;
-pointer-events:none;
-transition:all 0.4s ease;
-white-space:nowrap;
-}
-
-/* hide when typing */
-.search-bar input:not(:placeholder-shown) + .fake-placeholder{
-opacity:0;
-}
-
-/* animation states */
-.fake-placeholder.slide-up{
-transform:translateY(-150%);
-opacity:0;
-}
-
-.fake-placeholder.slide-in{
-transform:translateY(-50%);
-opacity:1;
-}
-
 
 .nav-icons button{
 background:#1c1c1c;
