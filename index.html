@@ -12,6 +12,7 @@
 <link rel="stylesheet"
 href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 </head>
 
 <body>
@@ -76,6 +77,7 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 <ul class="sidebar-menu">
 
+
 <li id="navHome">
 <i class="fa-solid fa-house"></i>
 <span>Home</span>
@@ -100,6 +102,11 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 <i class="fa-solid fa-clock-rotate-left"></i>
 <span>Listening History</span>
 </li>
+
+<li id="navLocal">
+<i class="fa-solid fa-folder"></i>
+<span>Local Files</span>
+</li> 
 
 </ul>
 
@@ -306,7 +313,13 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 <script src="script.js"></script>
 
-
+<input 
+type="file" 
+id="localFileInput" 
+accept="audio/*" 
+multiple 
+style="display:none"
+>
 
 </body>
 </html>

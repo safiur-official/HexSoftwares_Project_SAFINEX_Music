@@ -57,7 +57,8 @@ home: renderHome,
 explore: renderExplore,
 library: renderLibrary,
 liked: renderLiked,
-history: renderHistory
+history: renderHistory,
+local: renderLocal
 }
 
 /* ✅ CLEAN HASH ROUTING */
@@ -78,7 +79,8 @@ home: renderHome,
 explore: renderExplore,
 library: renderLibrary,
 liked: renderLiked,
-history: renderHistory
+history: renderHistory,
+local: renderLocal
 }
 
 if(routes[page]){
@@ -2164,3 +2166,166 @@ queuePanel.classList.remove("active")
 })
 
 
+function renderLocal(){
+
+pageContent.innerHTML = `
+<h2 style="margin-bottom:20px">Local Files</h2>
+
+<div class="local-upload-area" id="dropZone">
+<p>Drag & Drop Music Here</p>
+<button id="loadLocalBtn" class="glass-btn">Load from Device</button>
+</div>
+
+<div class="song-grid" id="localGrid"></div>
+`
+
+const btn = document.getElementById("loadLocalBtn")
+const fileInput = document.getElementById("localFileInput")
+const dropZone = document.getElementById("dropZone")
+const grid = document.getElementById("localGrid")
+
+btn.onclick = () => fileInput.click()
+
+/* ===============================
+FILE INPUT
+=============================== */
+fileInput.onchange = (e)=>{
+handleFiles(e.target.files)
+}
+
+/* ===============================
+DRAG & DROP
+=============================== */
+dropZone.ondragover = (e)=>{
+e.preventDefault()
+dropZone.classList.add("dragover")
+}
+
+dropZone.ondragleave = ()=>{
+dropZone.classList.remove("dragover")
+}
+
+dropZone.ondrop = (e)=>{
+e.preventDefault()
+dropZone.classList.remove("dragover")
+handleFiles(e.dataTransfer.files)
+}
+
+/* ===============================
+LOAD FROM DB ON OPEN
+=============================== */
+loadLocalFromDB()
+
+}
+
+
+function handleFiles(files){
+
+Array.from(files).forEach(file=>{
+
+if(!file.type.startsWith("audio")) return
+
+/* 🔥 READ METADATA */
+window.jsmediatags.read(file, {
+onSuccess: function(tag){
+
+const title = tag.tags.title || file.name
+const artist = tag.tags.artist || "Unknown"
+
+let cover = ""
+
+if(tag.tags.picture){
+let base64String = ""
+const data = tag.tags.picture.data
+for(let i=0;i<data.length;i++){
+base64String += String.fromCharCode(data[i])
+}
+cover = `data:${tag.tags.picture.format};base64,${btoa(base64String)}`
+}else{
+cover = "https://via.placeholder.com/300x300?text=Music"
+}
+
+saveLocalSong(file, title, artist, cover)
+
+},
+onError: function(){
+saveLocalSong(file, file.name, "Unknown", "")
+}
+})
+
+})
+
+}
+
+let db
+
+const request = indexedDB.open("SafinexDB", 1)
+
+request.onupgradeneeded = function(e){
+db = e.target.result
+db.createObjectStore("songs", { keyPath: "id" })
+}
+
+request.onsuccess = function(e){
+db = e.target.result
+}
+
+
+function saveLocalSong(file, title, artist, cover){
+
+const reader = new FileReader()
+
+reader.onload = function(){
+
+const songData = {
+id: "local_" + Date.now() + Math.random(),
+title,
+artist,
+cover,
+src: reader.result
+}
+
+const tx = db.transaction("songs", "readwrite")
+const store = tx.objectStore("songs")
+store.add(songData)
+
+/* add to UI */
+songs.push(songData)
+const index = songs.length - 1
+
+const grid = document.getElementById("localGrid")
+if(grid){
+grid.appendChild(createSongCard(songData, index))
+}
+
+}
+
+reader.readAsDataURL(file)
+
+}
+
+
+function loadLocalFromDB(){
+
+if(!db) return
+
+const tx = db.transaction("songs", "readonly")
+const store = tx.objectStore("songs")
+const request = store.getAll()
+
+request.onsuccess = function(){
+
+const grid = document.getElementById("localGrid")
+if(!grid) return
+
+request.result.forEach(song=>{
+
+songs.push(song)
+const index = songs.length - 1
+grid.appendChild(createSongCard(song, index))
+
+})
+
+}
+
+}
