@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Safinex Music Player</title>
+
+<link rel="stylesheet" href="style.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+
+<div id="bg-blur"></div>
+
+<!-- ================= NAVBAR ================= -->
+
+<header class="navbar">
+
+<div class="logo">
+
+<button id="menuToggle" class="hamburger">
+<span></span>
+<span></span>
+<span></span>
+</button>
+
+<span>Safinex Music</span>
+
+</div>
+
+<div class="search-bar">
+
+<i class="fa-solid fa-magnifying-glass"></i>
+
+<input id="searchInput" type="text" placeholder="Search songs...">
+<button id="voiceSearchBtn">
+<i class="fa-solid fa-microphone"></i>
+</button>
+<!-- 🔥 SEARCH DROPDOWN -->
+<div class="search-results" id="searchResults">
+
+<div class="search-tabs">
+<button class="tab active" data-type="tracks">Songs</button>
+<button class="tab" data-type="artists">Artists</button>
+<button class="tab" data-type="albums">Albums</button>
+</div>
+
+<div id="recentSearchList"></div>
+<div id="trendingSearchList"></div>
+
+<div class="search-content"></div>
+
+</div>
+
+</div>
+
+<div class="nav-icons"> 
+
+<button>Upload</button>
+
+<button>Profile</button>
+
+</div>
+
+</header>
+
+<!-- ================= APP CONTAINER ================= -->
+
+<div class="app-container">
+
+<!-- ================= SIDEBAR ================= -->
+
+<aside class="sidebar collapsed">
+
+<nav class="menu">
+
+<ul class="sidebar-menu">
+
+<li id="navHome">
+<i class="fa-solid fa-house"></i>
+<span>Home</span>
+</li>
+
+<li id="navExplore">
+<i class="fa-regular fa-compass"></i>
+<span>Explore</span>
+</li>
+
+<li id="navLibrary">
+<i class="fa-regular fa-bookmark"></i>
+<span>Library</span>
+</li>
+
+<li id="navLiked">
+<i class="fa-solid fa-heart"></i>
+<span>Liked Songs</span>
+</li>
+
+<li id="navHistory">
+<i class="fa-solid fa-clock-rotate-left"></i>
+<span>Listening History</span>
+</li>
+
+</ul>
+
+
+</nav>
+
+</aside>
+
+<!-- ================= MAIN CONTENT ================= -->
+
+<main class="main-content">
+
+<div id="pageContent">
+
+<!-- HERO SECTION -->
+
+<section class="hero-recommendation">
+
+<div class="hero-cover">
+<img id="heroImage" src="">
+</div>
+
+<div class="hero-info">
+
+<h2>Pick up where you left off</h2>
+
+<h3 id="heroTitle">Song Title</h3>
+
+<p id="heroArtist">Artist</p>
+
+<button id="heroPlay">▶ Play</button>
+
+</div>
+
+</section>
+
+<!-- CATEGORY FILTER -->
+
+<div class="category-bar">
+
+<button class="chip active" data-mood="all">All</button>
+<button class="chip" data-mood="relax">Relax</button>
+<button class="chip" data-mood="focus">Focus</button>
+<button class="chip" data-mood="party">Party</button>
+<button class="chip" data-mood="coding">Coding</button>
+<button class="chip" data-mood="sleep">Sleep</button>
+
+</div>
+
+<!-- LISTEN AGAIN -->
+
+<section class="music-row">
+
+<div class="row-header">
+
+<h2>Listen Again</h2>
+
+<div class="row-controls">
+<button class="scroll-left">◀</button>
+<button class="scroll-right">▶</button>
+</div>
+
+</div>
+
+<div class="row-container" id="listenRow"></div>
+
+</section>
+
+<!-- TRENDING -->
+
+<section class="music-row">
+
+<div class="row-header">
+
+<h2>Trending</h2>
+
+<div class="row-controls">
+<button class="scroll-left">◀</button>
+<button class="scroll-right">▶</button>
+</div>
+
+</div>
+
+<div class="row-container" id="trendingRow"></div>
+
+</section>
+
+<!-- FAVORITES -->
+
+<section class="music-row">
+
+<div class="row-header">
+
+<h2>Forgotten Favorites</h2>
+
+<div class="row-controls">
+<button class="scroll-left">◀</button>
+<button class="scroll-right">▶</button>
+</div>
+
+</div>
+
+<div class="row-container" id="favoriteRow"></div>
+
+</section>
+
+</div>
+
+</main>
+
+</div>
+
+<!-- ================= PLAYER ================= -->
+
+<footer class="music-player">
+
+<!-- LEFT -->
+
+<div class="player-left">
+
+<img src="" class="player-cover" id="playerCover">
+
+<div class="song-info">
+
+<div class="song-name">Song Title</div>
+
+<div class="artist-name">Artist</div>
+
+</div>
+
+<button id="likeSongBtn">
+<i class="fa-solid fa-thumbs-up"></i>
+</button>
+
+</div>
+
+<!-- CENTER -->
+
+<div class="player-center">
+
+<div class="controls">
+
+<button id="shuffle">
+<i class="fa-solid fa-shuffle"></i>
+</button>
+
+<button id="prev">
+<i class="fa-solid fa-backward-step"></i>
+</button>
+
+<button id="play" class="play-btn">
+<i class="fa-solid fa-play"></i>
+</button>
+
+<button id="next">
+<i class="fa-solid fa-forward-step"></i>
+</button>
+
+<button id="repeat">
+<i id="repeatIcon" class="fa-solid fa-repeat"></i>
+</button>
+
+</div>
+
+<div class="time-bar">
+
+<span id="current-time">0:00</span>
+
+<input type="range" id="progress" min="0" max="100">
+
+<span id="duration">0:00</span>
+
+</div>
+
+</div>
+
+<!-- RIGHT -->
+
+<div class="player-right">
+
+<button>
+<i class="fa-solid fa-volume-high"></i>
+</button>
+
+<input type="range" id="volume" min="0" max="1" step="0.01">
+
+<button id="queueBtn">
+<i class="fa-solid fa-bars"></i>
+</button>
+
+<div class="queue-panel" id="queuePanel">
+
+<div class="queue-header">
+<h3>Up Next</h3>
+<button id="closeQueue">✕</button>
+</div>
+
+<div class="queue-list"></div>
+
+</div>
+</footer>
+
+<script src="script.js"></script>
+
+</body>
+</html>
