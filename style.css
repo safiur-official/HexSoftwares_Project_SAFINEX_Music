@@ -191,6 +191,14 @@ border-color:#ff0033;
 box-shadow:0 0 0 2px rgba(255,0,51,0.15);
 }
 
+.search-label{
+font-size:12px;
+color:#aaa;
+padding:6px 8px;
+margin-top:6px;
+margin-bottom:4px;
+}
+
 .nav-icons button{
 background:#1c1c1c;
 border:none;
@@ -411,6 +419,89 @@ color:white;
 
 .controls button:active{
 transform:scale(0.88);
+}
+
+
+/* ===============================
+PLAYER ACTIVE BUTTON GLOW
+=============================== */
+
+.control-active{
+color:#ff0033 !important;
+position:relative;
+}
+
+/* glow aura */
+.control-active::after{
+content:"";
+position:absolute;
+inset:-6px;
+border-radius:50%;
+background:radial-gradient(
+circle,
+rgba(255,0,51,0.4),
+transparent 70%
+);
+z-index:-1;
+filter:blur(6px);
+animation:glowPulse 1.5s infinite;
+}
+
+@keyframes glowPulse{
+0%{opacity:0.6}
+50%{opacity:1}
+100%{opacity:0.6}
+}
+
+/* ===============================
+REPEAT ONE BADGE
+=============================== */
+
+#repeat[data-repeat="one"]::after{
+content:"1";
+position:absolute;
+top:-6px;
+right:-6px;
+font-size:10px;
+background:#ff0033;
+color:#fff;
+width:14px;
+height:14px;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+}
+
+/* ===============================
+TOOLTIP
+=============================== */
+
+.tooltip{
+position:absolute;
+bottom:45px;
+left:50%;
+transform:translateX(-50%) scale(0.9);
+background:#111;
+color:#fff;
+font-size:11px;
+padding:4px 8px;
+border-radius:6px;
+white-space:nowrap;
+opacity:0;
+pointer-events:none;
+transition:all 0.2s ease;
+}
+
+.control-btn{
+position:relative;
+}
+
+/* show tooltip */
+.control-btn:hover .tooltip{
+opacity:1;
+transform:translateX(-50%) scale(1);
 }
 
 

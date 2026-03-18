@@ -333,13 +333,89 @@ const bgBlur = document.getElementById("bg-blur")
 const progress = document.getElementById("progress")
 const volume = document.getElementById("volume")
 
+const volumeBtn = document.getElementById("volumeBtn")
+const volumeIcon = document.getElementById("volumeIcon")
+
+let lastVolume = volume.value || 1   // 🔥 store previous volume
+
+volumeBtn.onclick = () => {
+
+if(audio.volume > 0){
+
+/* 🔇 MUTE */
+lastVolume = audio.volume
+audio.volume = 0
+volume.value = 0
+
+volumeIcon.className = "fa-solid fa-volume-xmark"
+
+showToast("Muted 🔇")
+
+}else{
+
+/* 🔊 UNMUTE */
+audio.volume = lastVolume || 1
+volume.value = audio.volume
+
+volumeIcon.className = "fa-solid fa-volume-high"
+
+showToast("Unmuted 🔊")
+
+}
+
+}
+
 const playBtn = document.getElementById("play")
 const nextBtn = document.getElementById("next")
 const prevBtn = document.getElementById("prev")
 
 const shuffleBtn = document.getElementById("shuffle")
+
+shuffleBtn.onclick = () => {
+
+isShuffle = !isShuffle
+
+if(isShuffle){
+shuffleBtn.classList.add("control-active")
+shuffleTip.innerText = "Shuffle ON"
+showToast("Shuffle ON 🔀")
+}else{
+shuffleBtn.classList.remove("control-active")
+shuffleTip.innerText = "Shuffle OFF"
+showToast("Shuffle OFF")
+}
+
+}
+
 const repeatBtn = document.getElementById("repeat")
 const repeatIcon = document.getElementById("repeatIcon")
+
+repeatBtn.onclick = () => {
+
+repeatMode = (repeatMode + 1) % 3
+
+repeatBtn.classList.remove("control-active")
+repeatBtn.removeAttribute("data-repeat")
+
+if(repeatMode === 0){
+repeatIcon.className = "fa-solid fa-repeat"
+showToast("Repeat OFF")
+}
+
+if(repeatMode === 1){
+repeatBtn.classList.add("control-active")
+repeatIcon.className = "fa-solid fa-repeat"
+showToast("Repeat ALL 🔁")
+}
+
+if(repeatMode === 2){
+repeatBtn.classList.add("control-active")
+repeatIcon.className = "fa-solid fa-repeat"
+repeatBtn.setAttribute("data-repeat","one")
+showToast("Repeat ONE 🔂")
+}
+
+}
 
 const currentTimeEl = document.getElementById("current-time")
 const durationEl = document.getElementById("duration")
@@ -373,6 +449,8 @@ navigate(route)
 
 
 
+const shuffleTip = document.getElementById("shuffleTip")
+const repeatTip = document.getElementById("repeatTip")
 
 
 
@@ -992,15 +1070,23 @@ NEXT / PREV
 
 nextBtn.onclick=playNext
 
-prevBtn.onclick=()=>{
+prevBtn.onclick = ()=>{
 
+if(audio.currentTime > 5){
+audio.currentTime = 0
+return
+}
+
+if(isShuffle){
+currentSong = Math.floor(Math.random() * songs.length)
+}else{
 currentSong--
-
-if(currentSong<0)
-currentSong=songs.length-1
+if(currentSong < 0){
+currentSong = songs.length - 1
+}
+}
 
 loadSong(currentSong)
-
 audio.play()
 
 }
@@ -1011,42 +1097,32 @@ NEXT SONG LOGIC
 
 function playNext(){
 
-/* repeat one */
+/* 🔁 REPEAT ONE */
 if(repeatMode === 2){
 loadSong(currentSong)
 audio.play()
 return
 }
 
-/* queue priority */
-if(queue.length > 0){
-
-const nextIndex = queue.shift()
-
-currentSong = nextIndex
-loadSong(nextIndex)
+/* 🔀 SHUFFLE MODE */
+if(isShuffle){
+currentSong = Math.floor(Math.random() * songs.length)
+loadSong(currentSong)
 audio.play()
-
 return
-
 }
 
-/* fallback normal order */
-
-if(isShuffle){
-currentSong = Math.floor(Math.random()*songs.length)
-}else{
+/* ▶ NORMAL FLOW */
 currentSong++
 
 if(currentSong >= songs.length){
 
 if(repeatMode === 1){
-currentSong = 0
+currentSong = 0   // loop playlist
 }else{
-return
+return            // stop playback
 }
 
-}
 }
 
 loadSong(currentSong)
@@ -1105,9 +1181,17 @@ audio.currentTime=(progress.value/100)*audio.duration
 VOLUME
 =============================== */
 
-volume.oninput=()=>{
+volume.oninput = () => {
 
-audio.volume=volume.value
+audio.volume = volume.value
+
+if(audio.volume == 0){
+volumeIcon.className = "fa-solid fa-volume-xmark"
+}else if(audio.volume < 0.5){
+volumeIcon.className = "fa-solid fa-volume-low"
+}else{
+volumeIcon.className = "fa-solid fa-volume-high"
+}
 
 }
 
@@ -1858,7 +1942,7 @@ if(recentSearches.includes(query)) return
 
 recentSearches.unshift(query)
 
-recentSearches = recentSearches.slice(0,6)
+recentSearches = recentSearches.slice(0,3)
 
 localStorage.setItem(
 "recentSearches",
@@ -1872,26 +1956,32 @@ renderRecentSearches()
 function renderRecentSearches(){
 
 const list = document.getElementById("recentSearchList")
-
 if(!list) return
 
 list.innerHTML=""
 
+/* 🔥 ADD LABEL */
+if(recentSearches.length > 0){
+
+const label = document.createElement("div")
+label.className = "search-label"
+label.innerText = "Recent Searches"
+
+list.appendChild(label)
+}
+
+/* 🔥 ADD ITEMS */
 recentSearches.forEach(q=>{
+const item = document.createElement("div")
+item.className = "search-item"
+item.innerText = q
 
-const item=document.createElement("div")
-
-item.className="search-item"
-
-item.innerText=q
-
-item.onclick=()=>{
-searchInput.value=q
+item.onclick = ()=>{
+searchInput.value = q
 performSearch(q)
 }
 
 list.appendChild(item)
-
 })
 
 }

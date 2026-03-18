@@ -242,8 +242,9 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 <div class="controls">
 
-<button id="shuffle">
+<button id="shuffle" class="control-btn">
 <i class="fa-solid fa-shuffle"></i>
+<span class="tooltip" id="shuffleTip">Shuffle OFF</span>
 </button>
 
 <button id="prev">
@@ -258,8 +259,9 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 <i class="fa-solid fa-forward-step"></i>
 </button>
 
-<button id="repeat">
+<button id="repeat" class="control-btn">
 <i id="repeatIcon" class="fa-solid fa-repeat"></i>
+<span class="tooltip" id="repeatTip">Repeat OFF</span>
 </button>
 
 </div>
@@ -280,8 +282,8 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 <div class="player-right">
 
-<button>
-<i class="fa-solid fa-volume-high"></i>
+<button id="volumeBtn">
+<i id="volumeIcon" class="fa-solid fa-volume-high"></i>
 </button>
 
 <input type="range" id="volume" min="0" max="1" step="0.01">
