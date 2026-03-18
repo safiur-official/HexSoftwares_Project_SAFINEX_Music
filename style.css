@@ -227,25 +227,7 @@ overflow-y:auto;
 display:block;
 }
 
-.search-tabs{
-display:flex;
-gap:10px;
-margin-bottom:10px;
-}
 
-
-.search-tabs button{
-background:#2a2a2a;
-border:none;
-padding:6px 12px;
-border-radius:20px;
-cursor:pointer;
-color:white;
-}
-
-.search-tabs button.active{
-background:#ff0033;
-}
 
 .search-item{
 display:flex;
