@@ -1168,6 +1168,41 @@ SEARCH
 
 const searchInput = document.getElementById("searchInput")
 
+/* ===============================
+DYNAMIC SEARCH PLACEHOLDER
+=============================== */
+const placeholderTexts = [
+"Search songs...",
+"Search artists...",
+"Search albums..."
+]
+
+let placeholderIndex = 0
+let placeholderInterval
+
+function startPlaceholderLoop(){
+
+placeholderInterval = setInterval(() => {
+
+/* 🔥 STOP if user typing */
+if(searchInput.value.length > 0) return
+
+placeholderIndex = (placeholderIndex + 1) % placeholderTexts.length
+
+searchInput.style.opacity = 0
+
+setTimeout(() => {
+searchInput.placeholder = placeholderTexts[placeholderIndex]
+searchInput.style.opacity = 1
+}, 200)
+
+}, 2000)
+
+}
+
+/* START LOOP */
+startPlaceholderLoop()
+
 searchInput.addEventListener("input",()=>{
 if(!searchResults) return
 
