@@ -371,6 +371,14 @@ const playBtn = document.getElementById("play")
 const nextBtn = document.getElementById("next")
 const prevBtn = document.getElementById("prev")
 
+audio.addEventListener("play", ()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+})
+
+audio.addEventListener("pause", ()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-play"></i>'
+})
+
 const shuffleBtn = document.getElementById("shuffle")
 
 shuffleBtn.onclick = () => {
@@ -755,7 +763,10 @@ CREATE SONG CARD
 function createSongCard(song,index){
 
 const card = document.createElement("div")
-card.className="song-card"
+card.className = "song-card"
+
+/* 🔥 ADD THIS */
+card.setAttribute("data-index", index)
 
 card.innerHTML = `
 
@@ -787,9 +798,20 @@ Remove from queue
 
 </div>
 
+
 <div class="card-image">
 <img src="${song.cover}">
-<div class="play-overlay">▶</div>
+
+<div class="play-overlay">
+<i class="fa-solid fa-play"></i>
+</div>
+
+<div class="equalizer">
+<span></span>
+<span></span>
+<span></span>
+</div>
+
 </div>
 
 <h4>${song.title}</h4>
@@ -810,7 +832,12 @@ queue = songs
 .filter(i=>i !== index)
 
 loadSong(index)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
+
 
 }
 
@@ -1004,8 +1031,6 @@ likeBtn.classList.add("active")
 likeBtn.classList.remove("active")
 }
 
-playBtn.innerHTML =
-'<i class="fa-solid fa-pause"></i>'
 
 songName.textContent = song.title
 
@@ -1031,7 +1056,7 @@ localStorage.setItem("history",JSON.stringify(history))
 
 /* update queue panel */
 renderQueue()
-
+updatePlayingUI()
 }
 
 
@@ -1050,21 +1075,32 @@ playBtn.classList.remove("ripple")
 
 if(audio.paused){
 
-audio.play()
+audio.play().then(()=>{
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 
-playBtn.innerHTML =
-'<i class="fa-solid fa-pause"></i>'
 
 }else{
 
 audio.pause()
 
-playBtn.innerHTML =
-'<i class="fa-solid fa-play"></i>'
 
 }
 
 }
+
+audio.addEventListener("pause", ()=>{
+	updatePlayingUI()
+document.querySelectorAll(".song-card").forEach(card=>{
+card.classList.remove("playing")
+
+const icon = card.querySelector(".play-overlay i")
+if(icon){
+icon.className = "fa-solid fa-play"
+}
+})
+})
 
 /* ===============================
 NEXT / PREV
@@ -1089,7 +1125,11 @@ currentSong = songs.length - 1
 }
 
 loadSong(currentSong)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 
 }
 
@@ -1102,7 +1142,11 @@ function playNext(){
 /* 🔁 REPEAT ONE */
 if(repeatMode === 2){
 loadSong(currentSong)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 return
 }
 
@@ -1110,7 +1154,11 @@ return
 if(isShuffle){
 currentSong = Math.floor(Math.random() * songs.length)
 loadSong(currentSong)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 return
 }
 
@@ -1128,7 +1176,11 @@ return            // stop playback
 }
 
 loadSong(currentSong)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 
 }
 
@@ -1601,7 +1653,11 @@ const index = songs.findIndex(song => song.id === recent.id)
 if(index !== -1){
 currentSong = index
 loadSong(index)
-audio.play()
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 }
 }
 }
@@ -1936,7 +1992,11 @@ if (heroPlay) {
 		if (index !== -1) {
 			currentSong = index
 			loadSong(index)
-			audio.play()
+			audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 		}
 	}
 }
@@ -2171,9 +2231,20 @@ function renderLocal(){
 pageContent.innerHTML = `
 <h2 style="margin-bottom:20px">Local Files</h2>
 
+<!-- 🔥 ADD THIS INPUT -->
+<input type="file" id="localFileInput" multiple accept="audio/*" style="display:none">
+
 <div class="local-upload-area" id="dropZone">
+
+<div class="upload-progress" id="uploadProgress" style="display:none">
+<div class="progress-bar" id="progressBar"></div>
+</div>
+
+<i class="fa-solid fa-music upload-icon"></i>
 <p>Drag & Drop Music Here</p>
+
 <button id="loadLocalBtn" class="glass-btn">Load from Device</button>
+
 </div>
 
 <div class="song-grid" id="localGrid"></div>
@@ -2190,7 +2261,22 @@ btn.onclick = () => fileInput.click()
 FILE INPUT
 =============================== */
 fileInput.onchange = (e)=>{
-handleFiles(e.target.files)
+
+const files = Array.from(e.target.files)
+
+/* 🔥 FILTER AUDIO ONLY */
+const audioFiles = files.filter(f => f.type.startsWith("audio"))
+
+if(audioFiles.length === 0){
+showToast("Only audio files allowed 🎵")
+return
+}
+
+handleFiles(audioFiles)
+
+/* 🔥 RESET INPUT (VERY IMPORTANT) */
+fileInput.value = ""
+
 }
 
 /* ===============================
@@ -2208,9 +2294,25 @@ dropZone.classList.remove("dragover")
 dropZone.ondrop = (e)=>{
 e.preventDefault()
 dropZone.classList.remove("dragover")
-handleFiles(e.dataTransfer.files)
+
+const files = Array.from(e.dataTransfer.files)
+
+/* 🔥 FILTER AUDIO ONLY */
+const audioFiles = files.filter(f => f.type.startsWith("audio"))
+
+if(audioFiles.length === 0){
+dropZone.classList.add("invalid")
+showToast("Only audio files allowed 🎵")
+
+setTimeout(()=>{
+dropZone.classList.remove("invalid")
+},1500)
+
+return
 }
 
+handleFiles(audioFiles)
+}
 /* ===============================
 LOAD FROM DB ON OPEN
 =============================== */
@@ -2219,18 +2321,28 @@ loadLocalFromDB()
 }
 
 
+
+
 function handleFiles(files){
 
-Array.from(files).forEach(file=>{
+if(!files || files.length === 0) return	
+
+const progressContainer = document.getElementById("uploadProgress")
+const progressBar = document.getElementById("progressBar")
+
+progressContainer.style.display = "block"
+
+let loaded = 0
+const total = files.length
+
+files.forEach(file=>{
+
+console.log("Processing:", file.name)	
 
 if(!file.type.startsWith("audio")) return
 
-/* 🔥 READ METADATA */
 window.jsmediatags.read(file, {
 onSuccess: function(tag){
-
-const title = tag.tags.title || file.name
-const artist = tag.tags.artist || "Unknown"
 
 let cover = ""
 
@@ -2245,11 +2357,42 @@ cover = `data:${tag.tags.picture.format};base64,${btoa(base64String)}`
 cover = "https://via.placeholder.com/300x300?text=Music"
 }
 
-saveLocalSong(file, title, artist, cover)
+saveLocalSong(
+file,
+tag.tags.title || file.name,
+tag.tags.artist || "Unknown",
+cover
+)
+
+/* 🔥 UPDATE PROGRESS */
+loaded++
+progressBar.style.width = ((loaded/total)*100) + "%"
+
+/* 🔥 HIDE WHEN DONE */
+if(loaded === total){
+setTimeout(()=>{
+progressContainer.style.display = "none"
+progressBar.style.width = "0%"
+},800)
+}
 
 },
 onError: function(){
+
+/* fallback save */
 saveLocalSong(file, file.name, "Unknown", "")
+
+loaded++
+progressBar.style.width = ((loaded/total)*100) + "%"
+
+/* finish check */
+if(loaded === total){
+setTimeout(()=>{
+progressContainer.style.display = "none"
+progressBar.style.width = "0%"
+},800)
+}
+
 }
 })
 
@@ -2273,9 +2416,20 @@ db = e.target.result
 
 function saveLocalSong(file, title, artist, cover){
 
+/* 🔥 ADD THIS */
+if(!db){
+console.warn("DB not ready yet")
+setTimeout(()=>{
+saveLocalSong(file, title, artist, cover)
+},500)
+return
+}
+
 const reader = new FileReader()
 
 reader.onload = function(){
+
+	console.log("Saved:", title)
 
 const songData = {
 id: "local_" + Date.now() + Math.random(),
@@ -2296,6 +2450,8 @@ const index = songs.length - 1
 const grid = document.getElementById("localGrid")
 if(grid){
 grid.appendChild(createSongCard(songData, index))
+
+updatePlayingUI()
 }
 
 }
@@ -2327,5 +2483,32 @@ grid.appendChild(createSongCard(song, index))
 })
 
 }
+
+}
+
+
+function updatePlayingUI(){
+
+document.querySelectorAll(".song-card").forEach(card=>{
+
+const cardIndex = Number(card.getAttribute("data-index"))
+
+const icon = card.querySelector(".play-overlay i")
+
+/* RESET */
+card.classList.remove("playing")
+if(icon){
+icon.className = "fa-solid fa-play"
+}
+
+/* ACTIVE CARD */
+if(cardIndex === currentSong){
+card.classList.add("playing")
+if(icon){
+icon.className = "fa-solid fa-pause"
+}
+}
+
+})
 
 }
