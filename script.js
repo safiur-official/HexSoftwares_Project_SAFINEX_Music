@@ -1023,15 +1023,16 @@ const song = songs[index]
 
 audio.src = song.src
 
-/* RESUME SAVED PROGRESS */
-
+/* RESUME ONLY LAST PLAYED SONG */
 const progressMemory =
 JSON.parse(localStorage.getItem("songProgress")) || {}
 
-if(progressMemory[song.id]){
+const lastPlayedId = localStorage.getItem("lastPlayedId")
 
+if(progressMemory[song.id] > 5 && song.id == lastPlayedId){
 audio.currentTime = progressMemory[song.id]
-
+}else{
+audio.currentTime = 0
 }
 
 /* update like button state */
@@ -1060,6 +1061,7 @@ localStorage.setItem("recentSong", JSON.stringify({
 cover: getValidCover(song.cover)
 }))
 
+localStorage.setItem("lastPlayedId", song.id)
 
 let history =
 JSON.parse(localStorage.getItem("history")) || []
