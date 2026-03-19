@@ -14,7 +14,7 @@ coding: "lofi,chillhop,beats",
 sleep: "meditation,calm"
 }
 
-
+const DEFAULT_COVER = "assets/default-cover.png"
 /* ===============================
 GLOBAL VARIABLES
 =============================== */
@@ -543,7 +543,7 @@ const newSongs = data.results.map(track => ({
 id:track.id,
 title:track.name,
 artist:track.artist_name,
-cover:track.album_image,
+cover: getValidCover(track.album_image),
 src:track.audio,
 mood:detectCategory(Array.isArray(track.tags)?track.tags:[]),
 tags:Array.isArray(track.tags)?track.tags:[]
@@ -606,7 +606,7 @@ const newSongs = data.results.map(track => ({
 id: track.id,
 title: track.name,
 artist: track.artist_name,
-cover: track.album_image,
+cover: getValidCover(track.album_image),
 src: track.audio,
 mood: detectCategory(Array.isArray(track.tags) ? track.tags : []),
 tags: Array.isArray(track.tags) ? track.tags : []
@@ -756,6 +756,17 @@ renderTrendingRow()
 renderFavoriteRow()
 }
 
+function getValidCover(cover){
+
+/* ❌ invalid cases */
+if(!cover || cover.trim() === "" || cover.includes("placeholder")){
+return DEFAULT_COVER
+}
+
+/* ✅ valid */
+return cover
+}
+
 /* ===============================
 CREATE SONG CARD
 =============================== */
@@ -800,7 +811,7 @@ Remove from queue
 
 
 <div class="card-image">
-<img src="${song.cover}">
+<img src="${getValidCover(song.cover)}">
 
 <div class="play-overlay">
 <i class="fa-solid fa-play"></i>
@@ -1032,18 +1043,23 @@ likeBtn.classList.remove("active")
 }
 
 
-songName.textContent = song.title
+songName.innerHTML = `<span>${song.title}</span>`
 
 artistName.textContent = song.artist
 
-playerCover.src = song.cover
+const cover = getValidCover(song.cover)
 
-bgBlur.style.backgroundImage=`url(${song.cover})`
+playerCover.src = cover
+bgBlur.style.backgroundImage = `url(${cover})`
 
 musicPlayer.classList.add("active")
 document.querySelector(".main-content").style.paddingBottom = "110px"
 
-localStorage.setItem("recentSong",JSON.stringify(song))
+localStorage.setItem("recentSong", JSON.stringify({
+...song,
+cover: getValidCover(song.cover)
+}))
+
 
 let history =
 JSON.parse(localStorage.getItem("history")) || []
@@ -1639,12 +1655,12 @@ return
 🎵 EXISTING USER (NORMAL FLOW)
 =============================== */
 
-heroImage.src = recent.cover
+heroImage.src = getValidCover(recent.cover)
 heroTitle.textContent = recent.title
 heroArtist.textContent = recent.artist
 
 if(bgBlur){
-bgBlur.style.backgroundImage = `url(${recent.cover})`
+bgBlur.style.backgroundImage = `url(${getValidCover(recent.cover)})`
 }
 
 if(heroPlay){
@@ -1983,8 +1999,11 @@ if (heroPlay) {
 	heroPlay.onclick = null;
 
 	heroPlay.onclick = () => {
-		const recent = JSON.parse(localStorage.getItem("recentSong"))
-
+const recentRaw = JSON.parse(localStorage.getItem("recentSong"))
+const recent = recentRaw ? {
+...recentRaw,
+cover: getValidCover(recentRaw.cover)
+} : null
 		if (!recent) return
 
 		const index = songs.findIndex(s => s.id === recent.id)
@@ -2354,7 +2373,12 @@ base64String += String.fromCharCode(data[i])
 }
 cover = `data:${tag.tags.picture.format};base64,${btoa(base64String)}`
 }else{
-cover = generatePremiumCover(tag.tags.title || file.name)
+
+if(tag.tags.picture){
+/* keep extracted cover */
+}else{
+cover = DEFAULT_COVER   // 🔥 USE YOUR DESIGN
+}
 }
 
 function generatePremiumCover(title){
@@ -2420,12 +2444,8 @@ progressBar.style.width = "0%"
 onError: function(){
 
 /* fallback save */
-saveLocalSong(
-file,
-file.name,
-"Unknown",
-generatePremiumCover(file.name)
-)
+saveLocalSong(file, file.name, "Unknown", DEFAULT_COVER)
+
 loaded++
 progressBar.style.width = ((loaded/total)*100) + "%"
 
