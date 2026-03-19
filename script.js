@@ -2354,7 +2354,47 @@ base64String += String.fromCharCode(data[i])
 }
 cover = `data:${tag.tags.picture.format};base64,${btoa(base64String)}`
 }else{
-cover = "https://via.placeholder.com/300x300?text=Music"
+cover = generatePremiumCover(tag.tags.title || file.name)
+}
+
+function generatePremiumCover(title){
+
+/* 🔥 create canvas */
+const canvas = document.createElement("canvas")
+canvas.width = 300
+canvas.height = 300
+
+const ctx = canvas.getContext("2d")
+
+/* 🎨 gradient colors (premium look) */
+const gradients = [
+["#ff0033","#33001b"],
+["#1db954","#191414"],
+["#3a7bd5","#00d2ff"],
+["#8e2de2","#4a00e0"]
+]
+
+const g = gradients[Math.floor(Math.random()*gradients.length)]
+
+const gradient = ctx.createLinearGradient(0,0,300,300)
+gradient.addColorStop(0, g[0])
+gradient.addColorStop(1, g[1])
+
+ctx.fillStyle = gradient
+ctx.fillRect(0,0,300,300)
+
+/* 🎵 text (song title initial) */
+ctx.fillStyle = "#fff"
+ctx.font = "bold 80px Arial"
+ctx.textAlign = "center"
+ctx.textBaseline = "middle"
+
+const letter = title.charAt(0).toUpperCase()
+
+ctx.fillText(letter,150,150)
+
+/* 🔥 return image */
+return canvas.toDataURL("image/png")
 }
 
 saveLocalSong(
@@ -2380,8 +2420,12 @@ progressBar.style.width = "0%"
 onError: function(){
 
 /* fallback save */
-saveLocalSong(file, file.name, "Unknown", "")
-
+saveLocalSong(
+file,
+file.name,
+"Unknown",
+generatePremiumCover(file.name)
+)
 loaded++
 progressBar.style.width = ((loaded/total)*100) + "%"
 
@@ -2435,7 +2479,8 @@ const songData = {
 id: "local_" + Date.now() + Math.random(),
 title,
 artist,
-cover,
+cover: cover || generatePremiumCover(title),
+
 src: reader.result
 }
 
@@ -2445,13 +2490,14 @@ store.add(songData)
 
 /* add to UI */
 songs.push(songData)
+updatePlayingUI()
 const index = songs.length - 1
 
 const grid = document.getElementById("localGrid")
 if(grid){
 grid.appendChild(createSongCard(songData, index))
 
-updatePlayingUI()
+
 }
 
 }
