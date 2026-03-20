@@ -40,9 +40,6 @@ let exploreLoading = false
 let exploreScrollInitialized = false
 
 
-let isSelectMode = false
-let selectedLocalSongs = new Set()
-
 
 /* ===============================
 APP ROUTER
@@ -380,10 +377,6 @@ playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
 
 audio.addEventListener("pause", ()=>{
 playBtn.innerHTML = '<i class="fa-solid fa-play"></i>'
-})
-
-audio.addEventListener("error", (e)=>{
-console.warn("Audio error:", e)
 })
 
 const shuffleBtn = document.getElementById("shuffle")
@@ -774,33 +767,6 @@ return DEFAULT_COVER
 return cover
 }
 
-function safePlay(){
-
-	/* 🔍 DEBUG */
-console.log("READY STATE:", audio.readyState)
-
-/* 🔥 IF ALREADY READY → PLAY IMMEDIATELY */
-if(audio.readyState >= 3){
-audio.play().catch(()=>{})
-return
-}
-
-/* 🔥 OTHERWISE WAIT PROPERLY */
-const playWhenReady = () => {
-audio.play().catch(()=>{})
-}
-
-/* 🔥 REMOVE OLD LISTENERS (IMPORTANT) */
-audio.removeEventListener("canplay", playWhenReady)
-audio.removeEventListener("loadeddata", playWhenReady)
-
-/* 🔥 ADD MULTIPLE SAFETY EVENTS */
-audio.addEventListener("canplay", playWhenReady, { once:true })
-audio.addEventListener("loadeddata", playWhenReady, { once:true })
-
-}
-
-
 /* ===============================
 CREATE SONG CARD
 =============================== */
@@ -814,7 +780,6 @@ card.className = "song-card"
 card.setAttribute("data-index", index)
 
 card.innerHTML = `
-<div class="select-checkbox"></div>
 
 <button class="song-menu-btn">
 <span class="material-icons">more_vert</span>
@@ -869,45 +834,21 @@ Remove from queue
 
 
 /* play song */
-
 card.onclick = () => {
 
-/* 🔥 SELECT MODE */
-if(isSelectMode){
-
-card.classList.toggle("selected")
-
-const id = songs[index].id
-
-if(selectedLocalSongs.has(id)){
-selectedLocalSongs.delete(id)
-}else{
-selectedLocalSongs.add(id)
-}
-
-/* 🔥 ADD THIS LINE */
-const countEl = document.getElementById("selectedCount")
-if(countEl){
-countEl.textContent = `${selectedLocalSongs.size} selected`
-}
-
-return
-}
-
-/* 🎵 NORMAL PLAY MODE */
 currentSong = index
-queue = songs.map((_,i)=>i).filter(i=>i !== index)
+
+queue = songs
+.map((_,i)=>i)
+.filter(i=>i !== index)
 
 loadSong(index)
+audio.play().then(()=>{
+playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+}).catch(err=>{
+console.warn("Play blocked:", err)
+})
 
-setTimeout(()=>{
-safePlay()
-setTimeout(()=>{
-if(audio.paused){
-audio.play().catch(()=>{})
-}
-}, 500)
-}, 50)
 
 }
 
@@ -1080,10 +1021,7 @@ function loadSong(index){
 
 const song = songs[index]
 
-audio.pause()              // 🔥 reset previous playback
 audio.src = song.src
-audio.currentTime = 0      // 🔥 reset immediately
-audio.load()
 
 /* RESUME ONLY LAST PLAYED SONG */
 const progressMemory =
@@ -2289,18 +2227,18 @@ grid.appendChild(sk)
 /* ===============================
 GLOBAL CLICK HANDLER (FIX 6 FINAL)
 =============================== */
-document.addEventListener("click", (e) => {
-
-/* 🔥 DO NOT BLOCK FILE INPUT */
-if(e.target.closest(".local-upload-area")) return
+document.addEventListener("click", () => {
 
 if(searchResults){
 searchResults.classList.remove("active")
 }
-
+/* 🔥 CLOSE ALL SONG MENUS */
 document.querySelectorAll(".song-menu.active")
-.forEach(menu => menu.classList.remove("active"))
+.forEach(menu => {
+menu.classList.remove("active")
+})
 
+/* 🔥 CLOSE QUEUE PANEL */
 const queuePanel = document.getElementById("queuePanel")
 if(queuePanel){
 queuePanel.classList.remove("active")
@@ -2312,31 +2250,7 @@ queuePanel.classList.remove("active")
 function renderLocal(){
 
 pageContent.innerHTML = `
-
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-
-<h2>Local Files</h2>
-
-<button id="selectModeBtn" class="glass-btn">
-Select
-</button>
-
-</div>
-
-<!-- 🔥 ACTION BAR -->
-<div class="local-actions-bar" id="localActionBar">
-<span id="selectedCount">0 selected</span>
-
-<button id="deleteSelectedBtn" class="danger-btn">
-<i class="fa-solid fa-trash"></i> Delete
-</button>
-
-<button id="cancelSelectBtn" class="ghost-btn">
-Cancel
-</button>
-</div>
-
-<button id="selectModeBtn" class="glass-btn">Select</button>
+<h2 style="margin-bottom:20px">Local Files</h2>
 
 <!-- 🔥 ADD THIS INPUT -->
 <input type="file" id="localFileInput" multiple accept="audio/*" style="display:none">
@@ -2357,175 +2271,13 @@ Cancel
 <div class="song-grid" id="localGrid"></div>
 `
 
-
-const removeBtn = document.getElementById("removeLocalBtn")
-
-removeBtn.onclick = () => {
-
-isSelectMode = !isSelectMode
-selectedLocalSongs.clear()
-
-removeBtn.textContent = isSelectMode ? "Delete Selected" : "Remove Songs"
-
-/* 🔥 VISUAL MODE */
-document.querySelectorAll(".song-card").forEach(card=>{
-card.classList.toggle("select-mode", isSelectMode)
-})
-
-}
-
-
-removeBtn.addEventListener("dblclick", async ()=>{
-
-if(!isSelectMode || selectedLocalSongs.size === 0){
-showToast("No songs selected")
-return
-}
-
-const tx = db.transaction("songs", "readwrite")
-const store = tx.objectStore("songs")
-
-let removedCount = 0
-
-selectedLocalSongs.forEach(id=>{
-
-/* 🔥 IF CURRENT SONG IS BEING DELETED → STOP PLAYER */
-if(songs[currentSong]?.id === id){
-audio.pause()
-audio.src = ""
-songName.textContent = "No song playing"
-artistName.textContent = ""
-}
-
-/* delete from DB */
-store.delete(id)
-
-/* remove from global songs */
-const index = songs.findIndex(s => s.id === id)
-if(index !== -1){
-songs.splice(index,1)
-removedCount++
-}
-
-})
-
-/* UI UPDATE */
-const grid = document.getElementById("localGrid")
-grid.innerHTML = ""
-
-/* reload local songs */
-loadLocalFromDB()
-
-/* RESET */
-selectedLocalSongs.clear()
-isSelectMode = false
-removeBtn.textContent = "Remove Songs"
-
-/* 🔥 TOAST */
-showToast(
-removedCount === 1
-? "1 song removed from Local"
-: `${removedCount} songs removed from Local`
-)
-
-})
-
-
-
-
 const btn = document.getElementById("loadLocalBtn")
 const fileInput = document.getElementById("localFileInput")
 const dropZone = document.getElementById("dropZone")
 const grid = document.getElementById("localGrid")
 
-const selectBtn = document.getElementById("selectModeBtn")
-const actionBar = document.getElementById("localActionBar")
-const deleteBtn = document.getElementById("deleteSelectedBtn")
-const cancelBtn = document.getElementById("cancelSelectBtn")
-const countEl = document.getElementById("selectedCount")
+btn.onclick = () => fileInput.click()
 
-selectBtn.onclick = () => {
-
-isSelectMode = true
-selectedLocalSongs.clear()
-
-actionBar.classList.add("active")
-
-document.querySelectorAll(".song-card").forEach(card=>{
-card.classList.add("select-mode")
-})
-
-}
-cancelBtn.onclick = () => {
-
-isSelectMode = false
-selectedLocalSongs.clear()
-
-actionBar.classList.remove("active")
-
-document.querySelectorAll(".song-card").forEach(card=>{
-card.classList.remove("select-mode","selected")
-})
-
-}
-
-deleteBtn.onclick = () => {
-
-if(selectedLocalSongs.size === 0){
-showToast("No songs selected")
-return
-}
-
-const tx = db.transaction("songs", "readwrite")
-const store = tx.objectStore("songs")
-
-let removedCount = 0
-
-selectedLocalSongs.forEach(id=>{
-
-if(songs[currentSong]?.id === id){
-audio.pause()
-audio.src = ""
-}
-
-store.delete(id)
-
-const index = songs.findIndex(s => s.id === id)
-if(index !== -1){
-songs.splice(index,1)
-removedCount++
-}
-
-})
-
-/* 🔥 REFRESH UI */
-const grid = document.getElementById("localGrid")
-grid.innerHTML = ""
-
-setTimeout(()=>{
-loadLocalFromDB()
-},100)
-
-/* RESET */
-cancelBtn.onclick()
-
-showToast(
-removedCount === 1
-? "1 song removed"
-: `${removedCount} songs removed`
-)
-
-}
-
-
-btn.onclick = () => {
-console.log("Button clicked")
-fileInput.click()
-}
-
-dropZone.addEventListener("click", ()=>{
-fileInput.click()
-})
 /* ===============================
 FILE INPUT
 =============================== */
