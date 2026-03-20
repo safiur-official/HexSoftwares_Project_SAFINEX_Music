@@ -1669,3 +1669,108 @@ opacity:1;
 .song-card.playing .play-overlay i{
 content:"";
 }
+
+.local-header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:20px;
+}
+
+.song-card.select-mode{
+border:2px solid #ff0033;
+background:rgba(255,0,51,0.08);
+}
+
+.song-card .select-checkbox{
+position:absolute;
+top:8px;
+left:8px;
+width:18px;
+height:18px;
+border-radius:4px;
+border:2px solid #fff;
+background:#111;
+display:none;
+}
+
+.song-card.select-mode .select-checkbox{
+display:block;
+}
+
+.song-card.selected .select-checkbox{
+background:#ff0033;
+border-color:#ff0033;
+}
+
+
+.song-card.select-mode{
+cursor:pointer;
+border:2px dashed rgba(255,255,255,0.2);
+}
+
+.song-card.selected{
+border:2px solid #ff0033;
+background:rgba(255,0,51,0.15);
+}
+
+
+/* ACTION BAR */
+.local-actions-bar{
+position:fixed;
+bottom:100px;
+left:50%;
+transform:translateX(-50%) translateY(20px);
+background:rgba(20,20,20,0.9);
+backdrop-filter:blur(20px);
+padding:10px 16px;
+border-radius:12px;
+display:flex;
+gap:12px;
+align-items:center;
+opacity:0;
+pointer-events:none;
+transition:0.3s;
+z-index:2000;
+}
+
+.local-actions-bar.active{
+opacity:1;
+transform:translateX(-50%) translateY(0);
+pointer-events:auto;
+}
+
+/* DELETE BUTTON */
+.danger-btn{
+background:#ff0033;
+border:none;
+padding:8px 14px;
+border-radius:8px;
+color:#fff;
+cursor:pointer;
+}
+
+.danger-btn:hover{
+background:#ff1a4d;
+}
+
+/* CANCEL BUTTON */
+.ghost-btn{
+background:transparent;
+border:1px solid rgba(255,255,255,0.2);
+padding:8px 14px;
+border-radius:8px;
+color:#fff;
+cursor:pointer;
+}
+
+/* SELECT MODE */
+.song-card.select-mode{
+cursor:pointer;
+border:2px dashed rgba(255,255,255,0.2);
+}
+
+.song-card.selected{
+border:2px solid #ff0033;
+background:rgba(255,0,51,0.15);
+}
