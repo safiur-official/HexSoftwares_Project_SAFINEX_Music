@@ -2289,18 +2289,18 @@ grid.appendChild(sk)
 /* ===============================
 GLOBAL CLICK HANDLER (FIX 6 FINAL)
 =============================== */
-document.addEventListener("click", () => {
+document.addEventListener("click", (e) => {
+
+/* 🔥 DO NOT BLOCK FILE INPUT */
+if(e.target.closest(".local-upload-area")) return
 
 if(searchResults){
 searchResults.classList.remove("active")
 }
-/* 🔥 CLOSE ALL SONG MENUS */
-document.querySelectorAll(".song-menu.active")
-.forEach(menu => {
-menu.classList.remove("active")
-})
 
-/* 🔥 CLOSE QUEUE PANEL */
+document.querySelectorAll(".song-menu.active")
+.forEach(menu => menu.classList.remove("active"))
+
 const queuePanel = document.getElementById("queuePanel")
 if(queuePanel){
 queuePanel.classList.remove("active")
@@ -2517,8 +2517,15 @@ removedCount === 1
 
 }
 
-btn.onclick = () => fileInput.click()
 
+btn.onclick = () => {
+console.log("Button clicked")
+fileInput.click()
+}
+
+dropZone.addEventListener("click", ()=>{
+fileInput.click()
+})
 /* ===============================
 FILE INPUT
 =============================== */
