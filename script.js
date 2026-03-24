@@ -47,7 +47,13 @@ SMART RECOMMENDATION ENGINE
 let userProfile = {
    moods: {},
    artists: {},
-   recent: []
+   songs: {},
+   recent: [],
+   lastUpdated: Date.now()
+}
+const savedProfile = JSON.parse(localStorage.getItem("userProfile"))
+if(savedProfile){
+   userProfile = savedProfile
 }
 
 let chipPreload = {}
@@ -599,20 +605,38 @@ function smartSortSongs(list){
 
    return list.sort((a,b)=>{
 
-      let scoreA = 0
-      let scoreB = 0
+      const score = (song)=>{
+         let s = 0
 
-      scoreA += userProfile.moods[a.mood] || 0
-      scoreB += userProfile.moods[b.mood] || 0
+         s += (userProfile.songs[song.id] || 0) * 5
+         s += (userProfile.moods[song.mood] || 0) * 3
+         s += (userProfile.artists[song.artist] || 0) * 3
 
-      scoreA += userProfile.artists[a.artist] || 0
-      scoreB += userProfile.artists[b.artist] || 0
+         if(userProfile.recent.includes(song.id)) s += 8
 
-      if(userProfile.recent.includes(a.id)) scoreA += 5
-      if(userProfile.recent.includes(b.id)) scoreB += 5
+         s += Math.random() * 2
 
-      return scoreB - scoreA
+         return s
+      }
+
+      return score(b) - score(a)
    })
+}
+
+
+function generateSmartQueue(){
+
+   if(songs.length === 0) return
+
+   const pool = songs.filter((_,i)=> i !== currentSong)
+
+   const sorted = smartSortSongs([...pool])
+
+   queue = sorted
+      .slice(0, 25)
+      .map(song => songs.findIndex(s => s.id === song.id))
+
+   renderQueue()
 }
 
 
@@ -1217,6 +1241,23 @@ function loadSong(index){
 if(!songs[index]) return
 
 const song = songs[index]
+/* 🔥 AI TRACKING START */
+userProfile.songs[song.id] = (userProfile.songs[song.id] || 0) + 3
+
+if(song.mood){
+   userProfile.moods[song.mood] =
+      (userProfile.moods[song.mood] || 0) + 2
+}
+
+userProfile.artists[song.artist] =
+   (userProfile.artists[song.artist] || 0) + 2
+
+userProfile.recent.unshift(song.id)
+userProfile.recent = userProfile.recent.slice(0, 30)
+
+localStorage.setItem("userProfile", JSON.stringify(userProfile))
+/* 🔥 AI TRACKING END */
+
 
 /* 🔥 SMART TRACKING FIX */
 userProfile.recent.unshift(song.id)
@@ -1289,6 +1330,7 @@ localStorage.setItem("history",JSON.stringify(history))
 /* update queue panel */
 renderQueue()
 updatePlayingUI()
+generateSmartQueue()
 }
 
 
@@ -1409,6 +1451,7 @@ return
 
 loadSong(currentSong)
 audio.play()
+generateSmartQueue()
 }
 
 /* ===============================
@@ -2811,3 +2854,9 @@ icon.className = audio.paused
 }
 
 }
+
+document.addEventListener("visibilitychange", ()=>{
+   if(!document.hidden){
+      generateSmartQueue()
+   }
+})
