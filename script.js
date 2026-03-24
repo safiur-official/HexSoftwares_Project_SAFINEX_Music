@@ -18,6 +18,8 @@ const DEFAULT_COVER = "assets/default-cover.png"
 /* ===============================
 GLOBAL VARIABLES
 =============================== */
+
+
 let songs = []
 let currentSong = 0
 let queue = []
@@ -39,7 +41,50 @@ let chipCache = {}
 let exploreLoading = false
 let exploreScrollInitialized = false
 
+/* ===============================
+SMART RECOMMENDATION ENGINE
+=============================== */
+let userProfile = {
+   moods: {},
+   artists: {},
+   recent: []
+}
 
+let chipPreload = {}
+
+
+
+function generatePremiumCover(title){
+const canvas = document.createElement("canvas")
+canvas.width = 300
+canvas.height = 300
+const ctx = canvas.getContext("2d")
+
+const gradients = [
+["#ff0033","#33001b"],
+["#1db954","#191414"],
+["#3a7bd5","#00d2ff"],
+["#8e2de2","#4a00e0"]
+]
+
+const g = gradients[Math.floor(Math.random()*gradients.length)]
+const gradient = ctx.createLinearGradient(0,0,300,300)
+gradient.addColorStop(0, g[0])
+gradient.addColorStop(1, g[1])
+
+ctx.fillStyle = gradient
+ctx.fillRect(0,0,300,300)
+
+ctx.fillStyle = "#fff"
+ctx.font = "bold 80px Arial"
+ctx.textAlign = "center"
+ctx.textBaseline = "middle"
+
+const letter = title.charAt(0).toUpperCase()
+ctx.fillText(letter,150,150)
+
+return canvas.toDataURL("image/png")
+}
 
 /* ===============================
 APP ROUTER
@@ -125,6 +170,7 @@ async function renderHome(){
 
 pageContent.innerHTML = homeHTML
 
+/* 🔥 RE-BIND DOM AFTER RENDER */
 listenRow = document.getElementById("listenRow")
 trendingRow = document.getElementById("trendingRow")
 favoriteRow = document.getElementById("favoriteRow")
@@ -138,6 +184,8 @@ await loadSongsFromAPI()
 }
 
 await loadHomeSections()
+
+preloadChips()
 }
 
 
@@ -150,90 +198,114 @@ pageContent.innerHTML = `
 `
 
 const grid = document.getElementById("exploreGrid")
+const scrollContainer = document.querySelector(".main-content")
 
 let loading = false
 
-/* 🔥 INITIAL LOAD */
+/* ===============================
+🔥 INITIAL LOAD WITH SKELETON
+=============================== */
 if(songs.length === 0){
-const newSongs = await loadSongsFromAPI()
 
-newSongs.forEach(song=>{
-const index = songs.findIndex(s => s.id === song.id)
-grid.appendChild(createSongCard(song,index))
-})
+   for(let i=0;i<12;i++){
+      const sk = document.createElement("div")
+      sk.className = "song-card skeleton"
+      sk.innerHTML = `
+      <div class="skeleton-img"></div>
+      <div class="skeleton-title"></div>
+      <div class="skeleton-artist"></div>
+      `
+      grid.appendChild(sk)
+   }
+
+   const newSongs = await loadSongsFromAPI()
+
+   grid.innerHTML = ""
+   const fragment = document.createDocumentFragment()
+
+   newSongs.forEach(song=>{
+      const index = songs.findIndex(s => s.id === song.id)
+      fragment.appendChild(createSongCard(song,index))
+   })
+
+   grid.appendChild(fragment)
+
 }else{
-songs.forEach((song,index)=>{
-grid.appendChild(createSongCard(song,index))
-})
+
+   const fragment = document.createDocumentFragment()
+   songs.forEach((song,index)=>{
+      fragment.appendChild(createSongCard(song,index))
+   })
+   grid.appendChild(fragment)
 }
 
-/* 🔥 CONTINUOUS SCROLL LOADER */
-
-let preloadBuffer = []
+/* ===============================
+🔥 INFINITE SCROLL (FIXED)
+=============================== */
 if(!exploreScrollInitialized){
 
+   let timeout = null
 
-const scrollContainer = document.querySelector(".main-content")
+   const handler = () => {
 
-scrollContainer.addEventListener("scroll", async () => {
+      if(timeout) return
 
-const scrollPosition = scrollContainer.scrollTop + scrollContainer.clientHeight
-const threshold = scrollContainer.scrollHeight - 600
+      timeout = setTimeout(async () => {
 
-if(scrollPosition >= threshold && !loading && !exploreLoading){
+         const scrollPosition =
+            scrollContainer.scrollTop + scrollContainer.clientHeight
 
-loading = true
-exploreLoading = true
+         const threshold =
+            scrollContainer.scrollHeight - 300
 
-/* skeleton */
-for(let i=0;i<6;i++){
-const sk = document.createElement("div")
-sk.className = "song-card skeleton"
-sk.innerHTML = `
-<div class="skeleton-img"></div>
-<div class="skeleton-title"></div>
-<div class="skeleton-artist"></div>
-`
-grid.appendChild(sk)
+         if(scrollPosition >= threshold && !loading){
+
+            loading = true
+
+            /* 🔥 SHOW SKELETON */
+            for(let i=0;i<6;i++){
+               const sk = document.createElement("div")
+               sk.className = "song-card skeleton"
+               sk.innerHTML = `
+               <div class="skeleton-img"></div>
+               <div class="skeleton-title"></div>
+               <div class="skeleton-artist"></div>
+               `
+               grid.appendChild(sk)
+            }
+
+            const newSongs = await loadSongsFromAPI()
+
+            /* 🔥 REMOVE SKELETON */
+            const skeletons = grid.querySelectorAll(".song-card.skeleton")
+            skeletons.forEach(el=>el.remove())
+
+            const fragment = document.createDocumentFragment()
+
+            newSongs.forEach(song=>{
+               const index = songs.findIndex(s => s.id === song.id)
+               fragment.appendChild(createSongCard(song,index))
+            })
+
+            grid.appendChild(fragment)
+
+            loading = false
+         }
+
+         timeout = null
+
+      }, 150)
+   }
+
+   scrollContainer.addEventListener("scroll", handler)
+   exploreScrollInitialized = true
+}
 }
 
-/* fetch */
-const newSongs = await loadSongsFromAPI()
 
-if(!newSongs || newSongs.length === 0){
-loading = false
-return
-}
-
-/* remove skeleton */
-const skeletons = grid.querySelectorAll(".song-card.skeleton")
-skeletons.forEach(el=>el.classList.add("fade-out"))
-
-setTimeout(()=>{
-skeletons.forEach(el=>el.remove())
-},300)
-
-/* append */
-newSongs.forEach(song=>{
-const index = songs.findIndex(s => s.id === song.id)
-grid.appendChild(createSongCard(song,index))
-})
-
-loading = false
-
-}
-
-})
-
-exploreScrollInitialized = true
-}
-}
-
-function renderLibrary(){
-
+async function renderLibrary(){
 if(songs.length === 0){
-loadSongsFromAPI()
-return
+await loadSongsFromAPI()
 }
 
 pageContent.innerHTML = `
@@ -274,10 +346,9 @@ grid.appendChild(createSongCard(songs[index], index))
 }
 
 
-function renderLiked(){
+async function renderLiked(){
 if(songs.length === 0){
-loadSongsFromAPI()
-return
+await loadSongsFromAPI()
 }
 pageContent.innerHTML = `
 <h2 style="margin-bottom:20px">Liked Songs</h2>
@@ -290,11 +361,10 @@ refreshLikedPage()
 
 
 
-function renderHistory(){
 
+async function renderHistory(){
 if(songs.length === 0){
-loadSongsFromAPI()
-return
+await loadSongsFromAPI()
 }
 
 
@@ -307,8 +377,11 @@ const grid = document.getElementById("historyGrid")
 
 const history = JSON.parse(localStorage.getItem("history")) || []
 
-history.forEach(index=>{
-grid.appendChild(createSongCard(songs[index],index))
+history.forEach(id=>{
+const index = songs.findIndex(s=>s.id===id)
+if(index !== -1){
+grid.appendChild(createSongCard(songs[index], index))
+}
 })
 
 }
@@ -321,6 +394,8 @@ grid.appendChild(createSongCard(songs[index],index))
 UI ELEMENTS
 =============================== */
 const pageContent = document.getElementById("pageContent")
+const likeBtn = document.getElementById("likeSongBtn")
+
 const homeHTML = pageContent.innerHTML
 
 let listenRow = document.getElementById("listenRow")
@@ -372,10 +447,12 @@ const nextBtn = document.getElementById("next")
 const prevBtn = document.getElementById("prev")
 
 audio.addEventListener("play", ()=>{
+	updatePlayingUI()
 playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
 })
 
 audio.addEventListener("pause", ()=>{
+	updatePlayingUI()
 playBtn.innerHTML = '<i class="fa-solid fa-play"></i>'
 })
 
@@ -517,6 +594,28 @@ return category
 return "other"
 }
 
+
+function smartSortSongs(list){
+
+   return list.sort((a,b)=>{
+
+      let scoreA = 0
+      let scoreB = 0
+
+      scoreA += userProfile.moods[a.mood] || 0
+      scoreB += userProfile.moods[b.mood] || 0
+
+      scoreA += userProfile.artists[a.artist] || 0
+      scoreB += userProfile.artists[b.artist] || 0
+
+      if(userProfile.recent.includes(a.id)) scoreA += 5
+      if(userProfile.recent.includes(b.id)) scoreB += 5
+
+      return scoreB - scoreA
+   })
+}
+
+
 /* ===============================
 LOAD SONGS FROM API
 =============================== */
@@ -549,7 +648,11 @@ mood:detectCategory(Array.isArray(track.tags)?track.tags:[]),
 tags:Array.isArray(track.tags)?track.tags:[]
 }))
 
-songs = [...songs, ...newSongs]
+newSongs.forEach(song=>{
+if(!songs.some(s => s.id === song.id)){
+songs.push(song)
+}
+})
 
 return newSongs
 
@@ -561,17 +664,61 @@ isLoading = false
 }
 }
 
+
+async function preloadChips(){
+
+   const moods = Object.keys(moodTags)
+
+   for(const mood of moods){
+
+      if(chipPreload[mood]) continue
+
+      const tags = moodTags[mood].split(",")
+
+      let results = []
+
+      for(const tag of tags){
+         const res = await fetch(
+            `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=15&tags=${tag.trim()}`
+         )
+
+		 
+         const data = await res.json()
+if(data.results){
+   results = [...results, ...data.results]
+}      }
+
+     chipPreload[mood] = results.map(track => ({
+   id: track.id,
+   title: track.name,
+   artist: track.artist_name,
+   cover: getValidCover(track.album_image),
+   src: track.audio,
+   mood: mood,
+   tags: Array.isArray(track.tags) ? track.tags : []
+}))
+   }
+
+   console.log("🔥 Chips Preloaded")
+}
+
 /* ===============================
 section-specific loaders
 =============================== */
 async function loadHomeSections(){
+
+/* 🔥 ADD THIS — FIRST LINE INSIDE FUNCTION */
+listenRow = document.getElementById("listenRow")
+trendingRow = document.getElementById("trendingRow")
+favoriteRow = document.getElementById("favoriteRow")
+
 await Promise.all([
 loadListenAgain(),
 loadTrending(),
 loadFavorites()
 ])
-removeSkeletonSmooth()
 
+removeSkeletonSmooth()
 }
 
 function loadListenAgain(){
@@ -629,15 +776,22 @@ row-specific render functions
 
 function renderListenRow(){
 if(!listenRow) return
+
 listenRow.innerHTML = ""
+
+const fragment = document.createDocumentFragment()
 
 listenData.forEach(song => {
 const index = songs.findIndex(s => s.id === song.id)
 if(index !== -1){
-listenRow.appendChild(createSongCard(songs[index], index))
+fragment.appendChild(createSongCard(songs[index], index))
 }
 })
+
+listenRow.appendChild(fragment)
 }
+
+
 
 function renderTrendingRow(){
 if(!trendingRow) return
@@ -646,29 +800,46 @@ if(trendingPage === 1){
 trendingRow.innerHTML = ""
 }
 
+const fragment = document.createDocumentFragment()
+
 trendingData.forEach(song => {
+
 let index = songs.findIndex(s => s.id === song.id)
 
 if(index === -1){
+if(!songs.some(s => s.id === song.id)){
 songs.push(song)
-index = songs.length - 1
+}
+index = songs.findIndex(s => s.id === song.id)
 }
 
-trendingRow.appendChild(createSongCard(songs[index], index))
+fragment.appendChild(createSongCard(songs[index], index))
+
 })
+
+trendingRow.appendChild(fragment)
 }
+
+
 
 function renderFavoriteRow(){
 if(!favoriteRow) return
+
 favoriteRow.innerHTML = ""
+
+const fragment = document.createDocumentFragment()
 
 favoriteData.forEach(song => {
 const index = songs.findIndex(s => s.id === song.id)
 if(index !== -1){
-favoriteRow.appendChild(createSongCard(songs[index], index))
+fragment.appendChild(createSongCard(songs[index], index))
 }
 })
+
+favoriteRow.appendChild(fragment)
 }
+
+
 
 /* ===============================
 INFINITE SONG LOADER
@@ -676,7 +847,13 @@ INFINITE SONG LOADER
 
 const mainContent = document.querySelector(".main-content")
 
+let scrollTimeout = null
+
 mainContent.addEventListener("scroll", () => {
+
+if(scrollTimeout) return   // 🔥 prevents spam
+
+scrollTimeout = setTimeout(async () => {
 
 const scrollPosition =
 mainContent.scrollTop + mainContent.clientHeight
@@ -686,11 +863,19 @@ mainContent.scrollHeight - 200
 
 if(scrollPosition >= threshold){
 
-loadSongsFromAPI()
+/* 🔥 EXTRA SAFETY */
+if(!isLoading && hasMore){
+await loadSongsFromAPI()
+}
 
 }
 
+scrollTimeout = null
+
+}, 200) // 🔥 throttle delay (tune: 150–300)
+
 })
+
 
 /* ===============================
 SHOW SKELETON CARDS
@@ -834,8 +1019,26 @@ Remove from queue
 
 
 /* play song */
-card.onclick = () => {
+card.addEventListener("click", (e) => {
 
+/* 🔥 ignore menu clicks */
+if(e.target.closest(".song-menu") || e.target.closest(".song-menu-btn")){
+return
+}
+
+/* 🎯 SAME SONG CLICKED */
+if(currentSong === index){
+
+if(audio.paused){
+audio.play().catch(()=>{})
+}else{
+audio.pause()
+}
+
+return
+}
+
+/* 🎯 NEW SONG */
 currentSong = index
 
 queue = songs
@@ -843,31 +1046,24 @@ queue = songs
 .filter(i=>i !== index)
 
 loadSong(index)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
+
+audio.play().catch(()=>{})
+
 })
-
-
-}
 
 /* menu toggle */
 
 const menuBtn = card.querySelector(".song-menu-btn")
 const menu = card.querySelector(".song-menu")
 
-menuBtn.onclick = (e)=>{
+menuBtn.addEventListener("click", (e)=>{
 e.stopPropagation()
 
-/* 🔥 CLOSE ALL OTHER MENUS */
 document.querySelectorAll(".song-menu.active")
 .forEach(m => m.classList.remove("active"))
 
-/* 🔥 OPEN CURRENT */
-menu.classList.add("active")
-}
-
+menu.classList.toggle("active")
+})
 
 
 /* PLAY NEXT */
@@ -1018,8 +1214,21 @@ LOAD SONG
 =============================== */
 
 function loadSong(index){
+if(!songs[index]) return
 
 const song = songs[index]
+
+/* 🔥 SMART TRACKING FIX */
+userProfile.recent.unshift(song.id)
+userProfile.recent = userProfile.recent.slice(0, 20)
+
+if(song.mood){
+   userProfile.moods[song.mood] =
+      (userProfile.moods[song.mood] || 0) + 1
+}
+
+userProfile.artists[song.artist] =
+   (userProfile.artists[song.artist] || 0) + 1
 
 audio.src = song.src
 
@@ -1059,7 +1268,12 @@ document.querySelector(".main-content").style.paddingBottom = "110px"
 localStorage.setItem("recentSong", JSON.stringify({
 ...song,
 cover: getValidCover(song.cover)
-}))
+
+
+})
+)
+
+
 
 localStorage.setItem("lastPlayedId", song.id)
 
@@ -1067,7 +1281,7 @@ let history =
 JSON.parse(localStorage.getItem("history")) || []
 
 if(!history.includes(index)){
-history.unshift(index)
+history.unshift(song.id)
 }
 
 localStorage.setItem("history",JSON.stringify(history))
@@ -1076,6 +1290,9 @@ localStorage.setItem("history",JSON.stringify(history))
 renderQueue()
 updatePlayingUI()
 }
+
+
+
 
 
 /* ===============================
@@ -1157,49 +1374,41 @@ NEXT SONG LOGIC
 
 function playNext(){
 
+/* 🔥 QUEUE FIRST */
+if(queue.length > 0){
+currentSong = queue.shift()
+loadSong(currentSong)
+audio.play()
+return
+}
+
 /* 🔁 REPEAT ONE */
 if(repeatMode === 2){
 loadSong(currentSong)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
+audio.play()
 return
 }
 
-/* 🔀 SHUFFLE MODE */
+/* 🔀 SHUFFLE */
 if(isShuffle){
 currentSong = Math.floor(Math.random() * songs.length)
 loadSong(currentSong)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
+audio.play()
 return
 }
 
-/* ▶ NORMAL FLOW */
+/* ▶ NORMAL */
 currentSong++
-
 if(currentSong >= songs.length){
-
 if(repeatMode === 1){
-currentSong = 0   // loop playlist
+currentSong = 0
 }else{
-return            // stop playback
+return
 }
-
 }
 
 loadSong(currentSong)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
-
+audio.play()
 }
 
 /* ===============================
@@ -1541,7 +1750,6 @@ likedGrid.appendChild(createSongCard(songs[index], index))
 LIKE SYSTEM
 =============================== */
 
-const likeBtn = document.getElementById("likeSongBtn")
 
 likeBtn.onclick = () => {
 
@@ -1592,9 +1800,9 @@ RENDER FILTERED ROWS
 function renderRows(list){
 if(!listenRow || !trendingRow || !favoriteRow) return
 
-listenRow.innerHTML = ""
-trendingRow.innerHTML = ""
-favoriteRow.innerHTML = ""
+listenRow.replaceChildren()
+trendingRow.replaceChildren()
+favoriteRow.replaceChildren()
 
 if(!list || list.length === 0){
 listenRow.innerHTML = "<p>No songs found</p>"
@@ -1735,24 +1943,25 @@ menuToggle.classList.toggle("active")
 
 
 const queuePanel = document.getElementById("queuePanel")
+queuePanel.addEventListener("click", (e)=>{
+   e.stopPropagation()
+})
+
 const queueBtn = document.getElementById("queueBtn")
 const closeQueue = document.getElementById("closeQueue")
+closeQueue.addEventListener("click", (e)=>{
+   e.stopPropagation()   // prevent global click
+   queuePanel.classList.remove("active")
+})
 
+queueBtn.addEventListener("click", (e) => {
+e.stopPropagation()
 
-queueBtn.onclick = (e) => {
-e.stopPropagation()   // 🔥 VERY IMPORTANT
 document.querySelectorAll(".song-menu.active")
 .forEach(m => m.classList.remove("active"))
+
 queuePanel.classList.toggle("active")
-}
-
-queuePanel.onclick = (e)=>{
-e.stopPropagation()   // 🔥 prevent closing when clicking inside
-}
-
-closeQueue.onclick = () => {
-queuePanel.classList.remove("active")
-}
+})
 
 
 function showToast(text){
@@ -1838,22 +2047,23 @@ CACHE CHECK (NEW)
 
 if(chipCache[mood]){
 
+/* 🔥 RE-BIND DOM */
+listenRow = document.getElementById("listenRow")
+trendingRow = document.getElementById("trendingRow")
+favoriteRow = document.getElementById("favoriteRow")
+
 listenData = chipCache[mood].listen
 trendingData = chipCache[mood].trending
 favoriteData = chipCache[mood].favorite
 
 removeSkeletonSmooth()
+listenRow.replaceChildren()
+trendingRow.replaceChildren()
+favoriteRow.replaceChildren()
 
-listenRow.innerHTML = ""
-trendingRow.innerHTML = ""
-favoriteRow.innerHTML = ""
-
-setTimeout(()=>{
 renderListenRow()
 renderTrendingRow()
 renderFavoriteRow()
-},50)
-
 return
 }
 
@@ -1863,34 +2073,78 @@ FETCH FROM API
 
 try{
 
-const tags = moodTags[mood]
+let allResults = []
 
-const url =
-`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=36&tags=${tags}&audioformat=mp31`
+/* 🔥 USE PRELOADED DATA FIRST */
+if(chipPreload[mood]){
+   allResults = chipPreload[mood]
+}else{
+   const tags = moodTags[mood].split(",")
 
-const res = await fetch(url)
-const data = await res.json()
+   for(const tag of tags){
+      const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=20&tags=${tag.trim()}&audioformat=mp3`
+      
+      const res = await fetch(url)
+      const data = await res.json()
 
-const moodSongs = data.results.map(track => ({
-	
-id: track.id,
-title: track.name,
-artist: track.artist_name,
-cover: track.album_image,
-src: track.audio,
-mood: mood,
-tags: Array.isArray(track.tags) ? track.tags : []
-}))
-songs = [...songs, ...moodSongs]
+      if(data.results){
+         allResults = [...allResults, ...data.results]
+      }
+   }
+}
+
+
+const moodSongs = allResults
+
+const uniqueSongs = []
+const seen = new Set()
+
+moodSongs.forEach(song=>{
+   if(!seen.has(song.id)){
+      seen.add(song.id)
+      uniqueSongs.push(song)
+   }
+})
+
+/* ✅ SORT AFTER BUILDING LIST */
+const smartSongs = smartSortSongs(uniqueSongs)
+
+
+uniqueSongs.forEach(song=>{
+if(!songs.some(s => s.id === song.id)){
+songs.push(song)
+}
+})
 
 /* ===============================
 FIX: ENSURE FULL 3 SECTIONS LOAD
 =============================== */
 
 /* take available mood songs */
-listenData = moodSongs.slice(0, 12)
-trendingData = moodSongs.slice(12, 24)
-favoriteData = moodSongs.slice(24, 36)
+/* 🔥 ENSURE MINIMUM DATA */
+const baseList = smartSongs.length ? smartSongs : uniqueSongs
+
+listenData = baseList.slice(0, 12)
+trendingData = baseList.slice(12, 24)
+favoriteData = baseList.slice(24, 36)
+
+/* 🔥 STRONG FALLBACK (NO EMPTY UI) */
+const fillFromGlobal = (arr, count) => {
+   if(arr.length >= count) return arr
+
+   const needed = count - arr.length
+
+   const extra = songs
+      .filter(s => !arr.some(a => a.id === s.id))
+      .slice(0, needed)
+
+   return [...arr, ...extra]
+}
+
+listenData = fillFromGlobal(listenData, 12)
+trendingData = fillFromGlobal(trendingData, 12)
+favoriteData = fillFromGlobal(favoriteData, 12)
+
 
 /* 🔥 FILL MISSING FROM GLOBAL SONGS */
 if(listenData.length < 12){
@@ -1923,15 +2177,14 @@ favorite: favoriteData
 
 removeSkeletonSmooth()
 
-listenRow.innerHTML = ""
-trendingRow.innerHTML = ""
-favoriteRow.innerHTML = ""
+listenRow.replaceChildren()
+trendingRow.replaceChildren()
+favoriteRow.replaceChildren()
 
-setTimeout(()=>{
+
 renderListenRow()
 renderTrendingRow()
 renderFavoriteRow()
-},50)
 
 }catch(err){
 console.error("Chip load error:", err)
@@ -2177,9 +2430,12 @@ searchResults.classList.remove("active")
 }
 
 
+
 function renderSearchGrid(list, grid){
 
 grid.innerHTML = ""
+
+const fragment = document.createDocumentFragment()
 
 list.forEach(track=>{
 
@@ -2191,15 +2447,21 @@ cover:track.album_image,
 src:track.audio
 }
 
-/* add to global songs */
+/* prevent duplicate */
+if(!songs.some(s => s.id === song.id)){
 songs.push(song)
+}
 
-const index = songs.length - 1
+const index = songs.findIndex(s => s.id === song.id)
 
-grid.appendChild(createSongCard(song, index))
+fragment.appendChild(createSongCard(song, index))
 
 })
+
+grid.appendChild(fragment)
 }
+
+
 
 
 function showSkeletonGrid(grid){
@@ -2227,10 +2489,11 @@ grid.appendChild(sk)
 /* ===============================
 GLOBAL CLICK HANDLER (FIX 6 FINAL)
 =============================== */
-document.addEventListener("click", () => {
-
+document.addEventListener("click", (e) => {
+if(!e.target.closest(".search-bar")){
 if(searchResults){
 searchResults.classList.remove("active")
+}
 }
 /* 🔥 CLOSE ALL SONG MENUS */
 document.querySelectorAll(".song-menu.active")
@@ -2240,8 +2503,8 @@ menu.classList.remove("active")
 
 /* 🔥 CLOSE QUEUE PANEL */
 const queuePanel = document.getElementById("queuePanel")
-if(queuePanel){
-queuePanel.classList.remove("active")
+if(queuePanel && !queuePanel.contains(e.target)){
+   queuePanel.classList.remove("active")
 }
 
 })
@@ -2383,45 +2646,7 @@ cover = DEFAULT_COVER   // 🔥 USE YOUR DESIGN
 }
 }
 
-function generatePremiumCover(title){
 
-/* 🔥 create canvas */
-const canvas = document.createElement("canvas")
-canvas.width = 300
-canvas.height = 300
-
-const ctx = canvas.getContext("2d")
-
-/* 🎨 gradient colors (premium look) */
-const gradients = [
-["#ff0033","#33001b"],
-["#1db954","#191414"],
-["#3a7bd5","#00d2ff"],
-["#8e2de2","#4a00e0"]
-]
-
-const g = gradients[Math.floor(Math.random()*gradients.length)]
-
-const gradient = ctx.createLinearGradient(0,0,300,300)
-gradient.addColorStop(0, g[0])
-gradient.addColorStop(1, g[1])
-
-ctx.fillStyle = gradient
-ctx.fillRect(0,0,300,300)
-
-/* 🎵 text (song title initial) */
-ctx.fillStyle = "#fff"
-ctx.font = "bold 80px Arial"
-ctx.textAlign = "center"
-ctx.textBaseline = "middle"
-
-const letter = title.charAt(0).toUpperCase()
-
-ctx.fillText(letter,150,150)
-
-/* 🔥 return image */
-return canvas.toDataURL("image/png")
-}
 
 saveLocalSong(
 file,
@@ -2544,8 +2769,11 @@ if(!grid) return
 
 request.result.forEach(song=>{
 
+
+if(!songs.some(s => s.id === song.id)){
 songs.push(song)
-const index = songs.length - 1
+}
+const index = songs.findIndex(s => s.id === song.id)
 grid.appendChild(createSongCard(song, index))
 
 })
@@ -2557,26 +2785,29 @@ grid.appendChild(createSongCard(song, index))
 
 function updatePlayingUI(){
 
-document.querySelectorAll(".song-card").forEach(card=>{
+/* 🔥 RESET PREVIOUS */
+const prev = document.querySelector(".song-card.playing")
+if(prev){
+prev.classList.remove("playing")
 
-const cardIndex = Number(card.getAttribute("data-index"))
-
-const icon = card.querySelector(".play-overlay i")
-
-/* RESET */
-card.classList.remove("playing")
+const icon = prev.querySelector(".play-overlay i")
 if(icon){
 icon.className = "fa-solid fa-play"
 }
+}
 
-/* ACTIVE CARD */
-if(cardIndex === currentSong){
-card.classList.add("playing")
+/* 🔥 CURRENT SONG */
+const current = document.querySelector(`[data-index="${currentSong}"]`)
+if(current){
+
+current.classList.add("playing")
+
+const icon = current.querySelector(".play-overlay i")
 if(icon){
-icon.className = "fa-solid fa-pause"
+icon.className = audio.paused
+? "fa-solid fa-play"
+: "fa-solid fa-pause"
 }
 }
-
-})
 
 }
