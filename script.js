@@ -1,11 +1,11 @@
-/* ===============================
+/* 
 AUDIO PLAYER OBJECT
-=============================== */
+ */
 const audio = new Audio()
 
-/* ===============================
+/* 
 AUDIO TAG MAPPING FOR MOOD FILTER
-=============================== */
+ */
 const moodTags = {
 relax: "ambient,chill",
 focus: "piano,instrumental",
@@ -15,9 +15,9 @@ sleep: "meditation,calm"
 }
 
 const DEFAULT_COVER = "assets/default-cover.png"
-/* ===============================
+/* 
 GLOBAL VARIABLES
-=============================== */
+ */
 
 
 let songs = []
@@ -41,9 +41,9 @@ let chipCache = {}
 let exploreLoading = false
 let exploreScrollInitialized = false
 
-/* ===============================
+/* 
 SMART RECOMMENDATION ENGINE
-=============================== */
+ */
 let userProfile = {
    moods: {},
    artists: {},
@@ -92,9 +92,9 @@ ctx.fillText(letter,150,150)
 return canvas.toDataURL("image/png")
 }
 
-/* ===============================
+/* 
 APP ROUTER
-=============================== */
+ */
 
 
 function navigate(page){
@@ -109,10 +109,11 @@ explore: renderExplore,
 library: renderLibrary,
 liked: renderLiked,
 history: renderHistory,
-local: renderLocal
+local: renderLocal,
+about: renderAbout
 }
 
-/* ✅ CLEAN HASH ROUTING */
+/* CLEAN HASH ROUTING */
 history.pushState({}, "", "/#/" + page)
 
 if(routes[page]){
@@ -159,16 +160,16 @@ item.classList.add("active")
 }
 
 
-/* ===============================
+/* 
 BROWSER BACK BUTTON SUPPORT
-=============================== */
+ */
 
 window.addEventListener("popstate", loadRouteFromURL)
 
 
-/* ===============================
+/* 
 ROUTE RENDER FUNCTIONS
-=============================== */
+ */
 
 
 
@@ -176,7 +177,7 @@ async function renderHome(){
 
 pageContent.innerHTML = homeHTML
 
-/* 🔥 RE-BIND DOM AFTER RENDER */
+/* RE-BIND DOM AFTER RENDER */
 listenRow = document.getElementById("listenRow")
 trendingRow = document.getElementById("trendingRow")
 favoriteRow = document.getElementById("favoriteRow")
@@ -184,7 +185,6 @@ favoriteRow = document.getElementById("favoriteRow")
 loadHeroSong()
 initHomeInteractions()
 
-/* 🔥 FIX */
 if(songs.length === 0){
 await loadSongsFromAPI()
 }
@@ -208,9 +208,9 @@ const scrollContainer = document.querySelector(".main-content")
 
 let loading = false
 
-/* ===============================
-🔥 INITIAL LOAD WITH SKELETON
-=============================== */
+/* 
+ INITIAL LOAD WITH SKELETON
+ */
 if(songs.length === 0){
 
    for(let i=0;i<12;i++){
@@ -245,9 +245,9 @@ if(songs.length === 0){
    grid.appendChild(fragment)
 }
 
-/* ===============================
-🔥 INFINITE SCROLL (FIXED)
-=============================== */
+/* 
+ INFINITE SCROLL 
+ */
 if(!exploreScrollInitialized){
 
    let timeout = null
@@ -268,7 +268,7 @@ if(!exploreScrollInitialized){
 
             loading = true
 
-            /* 🔥 SHOW SKELETON */
+            /*  SHOW SKELETON */
             for(let i=0;i<6;i++){
                const sk = document.createElement("div")
                sk.className = "song-card skeleton"
@@ -282,7 +282,7 @@ if(!exploreScrollInitialized){
 
             const newSongs = await loadSongsFromAPI()
 
-            /* 🔥 REMOVE SKELETON */
+            /*  REMOVE SKELETON */
             const skeletons = grid.querySelectorAll(".song-card.skeleton")
             skeletons.forEach(el=>el.remove())
 
@@ -396,9 +396,9 @@ grid.appendChild(createSongCard(songs[index], index))
 
 
 
-/* ===============================
+/* 
 UI ELEMENTS
-=============================== */
+ */
 const pageContent = document.getElementById("pageContent")
 const likeBtn = document.getElementById("likeSongBtn")
 
@@ -517,9 +517,9 @@ const musicPlayer = document.querySelector(".music-player")
 
 
 
-/* ===============================
+/* 
 SIDEBAR ROUTER NAVIGATION
-=============================== */
+ */
 
 const menuItems = document.querySelectorAll(".sidebar-menu li")
 
@@ -547,9 +547,9 @@ const repeatTip = document.getElementById("repeatTip")
 
 
 
-/* ===============================
+/* 
 JAMENDO API
-=============================== */
+ */
 
 const CLIENT_ID = "12748946"
 
@@ -560,9 +560,9 @@ const MAX_PAGES = 1000  // limit to prevent infinite loading in case of issues
 let isLoading = false
 let hasMore = true
 
-/* ===============================
+/* 
 CATEGORY TAG MAP
-=============================== */
+ */
 
 const categoryMap = {
 
@@ -578,9 +578,9 @@ sleep:["sleep","meditation","calm"]
 
 }
 
-/* ===============================
+/* 
 DETECT CATEGORY
-=============================== */
+ */
 
 function detectCategory(tags){
 
@@ -640,9 +640,9 @@ function generateSmartQueue(){
 }
 
 
-/* ===============================
+/* 
 LOAD SONGS FROM API
-=============================== */
+ */
 
 async function loadSongsFromAPI(){
 
@@ -723,15 +723,15 @@ if(data.results){
 }))
    }
 
-   console.log("🔥 Chips Preloaded")
+   console.log(" Chips Preloaded")
 }
 
-/* ===============================
+/* 
 section-specific loaders
-=============================== */
+ */
 async function loadHomeSections(){
 
-/* 🔥 ADD THIS — FIRST LINE INSIDE FUNCTION */
+/*   */
 listenRow = document.getElementById("listenRow")
 trendingRow = document.getElementById("trendingRow")
 favoriteRow = document.getElementById("favoriteRow")
@@ -794,9 +794,9 @@ favoriteData = songs.slice(0, 30)
 renderFavoriteRow()
 }
 
-/* ===============================
+/* 
 row-specific render functions
-=============================== */
+ */
 
 function renderListenRow(){
 if(!listenRow) return
@@ -865,9 +865,9 @@ favoriteRow.appendChild(fragment)
 
 
 
-/* ===============================
+/* 
 INFINITE SONG LOADER
-=============================== */
+ */
 
 const mainContent = document.querySelector(".main-content")
 
@@ -875,7 +875,7 @@ let scrollTimeout = null
 
 mainContent.addEventListener("scroll", () => {
 
-if(scrollTimeout) return   // 🔥 prevents spam
+if(scrollTimeout) return   //  prevents spam
 
 scrollTimeout = setTimeout(async () => {
 
@@ -887,7 +887,7 @@ mainContent.scrollHeight - 200
 
 if(scrollPosition >= threshold){
 
-/* 🔥 EXTRA SAFETY */
+/*  EXTRA SAFETY */
 if(!isLoading && hasMore){
 await loadSongsFromAPI()
 }
@@ -896,14 +896,14 @@ await loadSongsFromAPI()
 
 scrollTimeout = null
 
-}, 200) // 🔥 throttle delay (tune: 150–300)
+}, 200) //  throttle delay (tune: 150–300)
 
 })
 
 
-/* ===============================
+/* 
 SHOW SKELETON CARDS
-=============================== */
+ */
 
 function showSkeleton(type){
 let container = null
@@ -947,9 +947,9 @@ skeletons.forEach(el => el.remove())
 
 }
 
-/* ===============================
+/* 
 RENDER SONGS
-=============================== */
+ */
 
 function renderSongs(list){
 if(!listenRow || !trendingRow || !favoriteRow) return
@@ -967,18 +967,18 @@ renderFavoriteRow()
 
 function getValidCover(cover){
 
-/* ❌ invalid cases */
+/*  invalid cases */
 if(!cover || cover.trim() === "" || cover.includes("placeholder")){
 return DEFAULT_COVER
 }
 
-/* ✅ valid */
+/*  valid */
 return cover
 }
 
-/* ===============================
+/* 
 CREATE SONG CARD
-=============================== */
+ */
 
 function createSongCard(song,index){
 
@@ -1050,7 +1050,7 @@ if(e.target.closest(".song-menu") || e.target.closest(".song-menu-btn")){
 return
 }
 
-/* 🎯 SAME SONG CLICKED */
+/*  SAME SONG CLICKED */
 if(currentSong === index){
 
 if(audio.paused){
@@ -1062,7 +1062,7 @@ audio.pause()
 return
 }
 
-/* 🎯 NEW SONG */
+/*  NEW SONG */
 currentSong = index
 
 queue = songs
@@ -1151,9 +1151,9 @@ return card
 
 }
 
-/* ===============================
+/* 
 Queue SYSTEM
-=============================== */
+ */
 
 function renderQueue(){
 
@@ -1193,9 +1193,9 @@ list.appendChild(item)
 enableQueueDrag()
 }
 
-/* ===============================
+/* 
 DRAG SORT QUEUE
-=============================== */
+ */
 
 function enableQueueDrag(){
 
@@ -1233,15 +1233,15 @@ renderQueue()
 
 }
 
-/* ===============================
+/*
 LOAD SONG
-=============================== */
+ */
 
 function loadSong(index){
 if(!songs[index]) return
 
 const song = songs[index]
-/* 🔥 AI TRACKING START */
+/*  AI TRACKING START */
 userProfile.songs[song.id] = (userProfile.songs[song.id] || 0) + 3
 
 if(song.mood){
@@ -1256,10 +1256,10 @@ userProfile.recent.unshift(song.id)
 userProfile.recent = userProfile.recent.slice(0, 30)
 
 localStorage.setItem("userProfile", JSON.stringify(userProfile))
-/* 🔥 AI TRACKING END */
+/*  AI TRACKING END */
 
 
-/* 🔥 SMART TRACKING FIX */
+/*  SMART TRACKING FIX */
 userProfile.recent.unshift(song.id)
 userProfile.recent = userProfile.recent.slice(0, 20)
 
@@ -1337,9 +1337,9 @@ generateSmartQueue()
 
 
 
-/* ===============================
+/* 
 PLAY PAUSE
-=============================== */
+*/
 playBtn.onclick = () => {
 
 /* ripple animation */
@@ -1379,9 +1379,9 @@ icon.className = "fa-solid fa-play"
 })
 })
 
-/* ===============================
+/* 
 NEXT / PREV
-=============================== */
+ */
 
 nextBtn.onclick=playNext
 
@@ -1410,9 +1410,9 @@ console.warn("Play blocked:", err)
 
 }
 
-/* ===============================
+/* 
 NEXT SONG LOGIC
-=============================== */
+ */
 
 function playNext(){
 
@@ -1454,9 +1454,9 @@ audio.play()
 generateSmartQueue()
 }
 
-/* ===============================
+/* 
 PROGRESS BAR
-=============================== */
+ */
 
 audio.addEventListener("timeupdate",()=>{
 
@@ -1491,9 +1491,9 @@ JSON.stringify(progressMemory)
 
 })
 
-/* ===============================
+/* 
 SEEK
-=============================== */
+ */
 
 progress.addEventListener("input",()=>{
 
@@ -1501,9 +1501,9 @@ audio.currentTime=(progress.value/100)*audio.duration
 
 })
 
-/* ===============================
+/* 
 VOLUME
-=============================== */
+ */
 
 volume.oninput = () => {
 
@@ -1519,9 +1519,9 @@ volumeIcon.className = "fa-solid fa-volume-high"
 
 }
 
-/* ===============================
+/* 
 DURATION
-=============================== */
+ */
 
 audio.addEventListener("loadedmetadata",()=>{
 
@@ -1529,9 +1529,9 @@ durationEl.textContent=formatTime(audio.duration)
 
 })
 
-/* ===============================
+/* 
 SONG ENDED
-=============================== */
+ */
 
 audio.addEventListener("ended",()=>{
 
@@ -1553,9 +1553,9 @@ playNext()
 
 })
 
-/* ===============================
+/* 
 FORMAT TIME
-=============================== */
+ */
 
 function formatTime(seconds){
 
@@ -1569,16 +1569,16 @@ return mins+":"+(secs<10?"0"+secs:secs)
 
 }
 
-/* ===============================
+/* 
 SEARCH
-=============================== */
+ */
 
 
 const searchInput = document.getElementById("searchInput")
 
-/* ===============================
+/*
 DYNAMIC SEARCH PLACEHOLDER
-=============================== */
+ */
 const placeholderTexts = [
 "Search songs...",
 "Search artists...",
@@ -1592,7 +1592,7 @@ function startPlaceholderLoop(){
 
 placeholderInterval = setInterval(() => {
 
-/* 🔥 STOP if user typing */
+/*  STOP if user typing */
 if(searchInput.value.length > 0) return
 
 placeholderIndex = (placeholderIndex + 1) % placeholderTexts.length
@@ -1645,7 +1645,7 @@ searchContent.innerHTML = "Searching..."
 
 saveRecentSearch(query)
 
-/* 🔥 PARALLEL SEARCH (FAST LIKE YT MUSIC) */
+/*  PARALLEL SEARCH  */
 const [tracksRes, artistsRes, albumsRes] = await Promise.all([
 
 fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=5&search=${encodeURIComponent(query)}`),
@@ -1662,9 +1662,9 @@ const albumsData = await albumsRes.json()
 
 searchContent.innerHTML = ""
 
-/* ===============================
+/* 
 🎵 SONGS SECTION
-=============================== */
+ */
 if(tracksData.results.length){
 
 const title = document.createElement("h4")
@@ -1692,9 +1692,9 @@ searchContent.appendChild(div)
 })
 }
 
-/* ===============================
+/* 
 👤 ARTISTS SECTION
-=============================== */
+ */
 if(artistsData.results.length){
 
 const title = document.createElement("h4")
@@ -1718,9 +1718,9 @@ searchContent.appendChild(div)
 })
 }
 
-/* ===============================
+/* 
 💿 ALBUMS SECTION
-=============================== */
+ */
 if(albumsData.results.length){
 
 const title = document.createElement("h4")
@@ -1749,9 +1749,9 @@ searchContent.appendChild(div)
 
 
 
-/* ===============================
+/* 
 UPDATE LIKED PAGE
-=============================== */
+ */
 
 function updateLikedPage(){
 
@@ -1769,9 +1769,9 @@ likedGrid.appendChild(createSongCard(songs[index], index))
 
 }
 
-/* ===============================
+/* 
 REFRESH LIKED PAGE
-=============================== */
+ */
 
 function refreshLikedPage(){
 
@@ -1789,9 +1789,9 @@ likedGrid.appendChild(createSongCard(songs[index], index))
 
 }
 
-/* ===============================
+/* 
 LIKE SYSTEM
-=============================== */
+ */
 
 
 likeBtn.onclick = () => {
@@ -1836,9 +1836,9 @@ likeBtn.classList.remove("animate")
 
 
 
-/* ===============================
+/* 
 RENDER FILTERED ROWS
-=============================== */
+ */
 
 function renderRows(list){
 if(!listenRow || !trendingRow || !favoriteRow) return
@@ -1861,9 +1861,9 @@ renderTrendingRow()
 renderFavoriteRow()
 }
 
-/* ===============================
+/* 
 HERO RECENT SONG
-=============================== */
+*/
 function loadHeroSong(){
 
 const recent = JSON.parse(localStorage.getItem("recentSong"))
@@ -1874,9 +1874,9 @@ const heroArtist = document.getElementById("heroArtist")
 const heroPlay = document.getElementById("heroPlay")
 const heroSection = document.querySelector(".hero-recommendation")
 
-/* ===============================
+/* 
 🆕 NEW USER (NO HISTORY)
-=============================== */
+ */
 if(!recent){
 
 const hour = new Date().getHours()
@@ -1886,7 +1886,7 @@ if(hour < 12) greeting = "Good Morning ☀️"
 else if(hour < 17) greeting = "Good Afternoon 🌤️"
 else greeting = "Good Evening 🌙"
 
-/* 🔥 Replace Hero UI */
+/*  Hero UI */
 heroSection.innerHTML = `
 <div class="welcome-card">
 <h2>${greeting}</h2>
@@ -1904,9 +1904,9 @@ navigate("explore")
 return
 }
 
-/* ===============================
+/* 
 🎵 EXISTING USER (NORMAL FLOW)
-=============================== */
+ */
 
 heroImage.src = getValidCover(recent.cover)
 heroTitle.textContent = recent.title
@@ -1933,9 +1933,9 @@ console.warn("Play blocked:", err)
 
 }
 
-/* ===============================
+/* 
 LOAD ROUTE FROM URL
-=============================== */
+*/
 
 function loadRouteFromURL(){
 
@@ -1947,18 +1947,18 @@ navigateWithoutPush(path)
 
 }
 
-/* ===============================
-INITIAL ROUTE FIX (ADD HERE)
-=============================== */
+/* 
+INITIAL ROUTE FIX 
+*/
 if(!window.location.hash){
 history.replaceState({}, "", "/#/home")
 }
 
 
 
-/* ===============================
+/* 
 INITIALIZE PLAYER
-=============================== */
+ */
 
 loadRouteFromURL()
 
@@ -1969,9 +1969,9 @@ loadSongsFromAPI()
 
 
 
-/* ===============================
+/* 
 SIDEBAR OPEN / CLOSE
-=============================== */
+ */
 
 const menuToggle = document.getElementById("menuToggle")
 const sidebar = document.querySelector(".sidebar")
@@ -2029,15 +2029,15 @@ setTimeout(()=>toast.remove(),300)
 
 
 
-/* ===============================
+/* 
 REINITIALIZE HOME PAGE EVENTS
-=============================== */
+ */
 
 function initHomeInteractions(){
 
-/* ===============================
+/*
 CATEGORY FILTER
-=============================== */
+ */
 
 const chips = document.querySelectorAll(".chip")
 
@@ -2061,14 +2061,14 @@ trendingData = []
 favoriteData = []
 
 
-/* 🔥 SHOW SKELETON ONCE */
+/* SHOW SKELETON ONCE */
 showSkeleton("listen")
 showSkeleton("trending")
 showSkeleton("favorite")
 
-/* ===============================
-ALL CATEGORY (FIXED 🔥)
-=============================== */
+/* 
+ALL CATEGORY 
+*/
 if(mood === "all"){
 
 listenData = []
@@ -2084,9 +2084,9 @@ await loadHomeSections()
 
 return
 }
-/* ===============================
+/* 
 CACHE CHECK (NEW)
-=============================== */
+*/
 
 if(chipCache[mood]){
 
@@ -2110,15 +2110,15 @@ renderFavoriteRow()
 return
 }
 
-/* ===============================
+/* 
 FETCH FROM API
-=============================== */
+ */
 
 try{
 
 let allResults = []
 
-/* 🔥 USE PRELOADED DATA FIRST */
+/*  USE PRELOADED DATA FIRST */
 if(chipPreload[mood]){
    allResults = chipPreload[mood]
 }else{
@@ -2159,19 +2159,19 @@ songs.push(song)
 }
 })
 
-/* ===============================
-FIX: ENSURE FULL 3 SECTIONS LOAD
-=============================== */
+/* 
+ ENSURE FULL 3 SECTIONS LOAD
+ */
 
 /* take available mood songs */
-/* 🔥 ENSURE MINIMUM DATA */
+/*  ENSURE MINIMUM DATA */
 const baseList = smartSongs.length ? smartSongs : uniqueSongs
 
 listenData = baseList.slice(0, 12)
 trendingData = baseList.slice(12, 24)
 favoriteData = baseList.slice(24, 36)
 
-/* 🔥 STRONG FALLBACK (NO EMPTY UI) */
+/*  STRONG FALLBACK (NO EMPTY UI) */
 const fillFromGlobal = (arr, count) => {
    if(arr.length >= count) return arr
 
@@ -2189,7 +2189,7 @@ trendingData = fillFromGlobal(trendingData, 12)
 favoriteData = fillFromGlobal(favoriteData, 12)
 
 
-/* 🔥 FILL MISSING FROM GLOBAL SONGS */
+/*  FILL MISSING FROM GLOBAL SONGS */
 if(listenData.length < 12){
 listenData = [
 ...listenData,
@@ -2211,7 +2211,7 @@ favoriteData = [
 ]
 }
 
-/* 🔥 SAVE CACHE */
+/*  SAVE CACHE */
 chipCache[mood] = {
 listen: listenData,
 trending: trendingData,
@@ -2237,9 +2237,9 @@ console.error("Chip load error:", err)
 
 })
 
-/* ===============================
-ROW CONTROLS (VERY IMPORTANT)
-=============================== */
+/* 
+ROW CONTROLS 
+ */
 
 document.querySelectorAll(".music-row").forEach((row, rowIndex) => {
 
@@ -2321,8 +2321,6 @@ console.warn("Play blocked:", err)
 
 
 
-
-
 let recentSearches =
 JSON.parse(localStorage.getItem("recentSearches")) || []
 
@@ -2350,7 +2348,7 @@ if(!list) return
 
 list.innerHTML=""
 
-/* 🔥 ADD LABEL */
+/* LABEL */
 if(recentSearches.length > 0){
 
 const label = document.createElement("div")
@@ -2360,7 +2358,7 @@ label.innerText = "Recent Searches"
 list.appendChild(label)
 }
 
-/* 🔥 ADD ITEMS */
+/*  */
 recentSearches.forEach(q=>{
 const item = document.createElement("div")
 item.className = "search-item"
@@ -2413,9 +2411,9 @@ list.appendChild(item)
 
 }
 
-/* ===============================
+/*
 SEARCH RESULT PAGE (PREMIUM)
-=============================== */
+ */
 async function navigateToSearchPage(type, value){
 
 history.pushState({}, "", "/#/search")
@@ -2429,9 +2427,9 @@ const grid = document.getElementById("searchPageGrid")
 
 showSkeletonGrid(grid)
 
-/* ===============================
+/* 
 🎵 SONG SEARCH
-=============================== */
+ */
 if(type === "songs"){
 const res = await fetch(
 `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&search=${encodeURIComponent(value)}`
@@ -2441,9 +2439,9 @@ const data = await res.json()
 renderSearchGrid(data.results, grid)
 }
 
-/* ===============================
+/*
 👤 ARTIST SEARCH
-=============================== */
+ */
 if(type === "artist"){
 const res = await fetch(
 `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&artist_name=${encodeURIComponent(value)}`
@@ -2453,9 +2451,9 @@ const data = await res.json()
 renderSearchGrid(data.results, grid)
 }
 
-/* ===============================
+/* 
 💿 ALBUM SEARCH
-=============================== */
+ */
 if(type === "album"){
 const res = await fetch(
 `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&album_id=${value}`
@@ -2529,22 +2527,22 @@ grid.appendChild(sk)
 }
 
 
-/* ===============================
-GLOBAL CLICK HANDLER (FIX 6 FINAL)
-=============================== */
+/* 
+GLOBAL CLICK HANDLER 
+ */
 document.addEventListener("click", (e) => {
 if(!e.target.closest(".search-bar")){
 if(searchResults){
 searchResults.classList.remove("active")
 }
 }
-/* 🔥 CLOSE ALL SONG MENUS */
+/* CLOSE ALL SONG MENUS */
 document.querySelectorAll(".song-menu.active")
 .forEach(menu => {
 menu.classList.remove("active")
 })
 
-/* 🔥 CLOSE QUEUE PANEL */
+/*  CLOSE QUEUE PANEL */
 const queuePanel = document.getElementById("queuePanel")
 if(queuePanel && !queuePanel.contains(e.target)){
    queuePanel.classList.remove("active")
@@ -2584,14 +2582,14 @@ const grid = document.getElementById("localGrid")
 
 btn.onclick = () => fileInput.click()
 
-/* ===============================
+/* 
 FILE INPUT
-=============================== */
+ */
 fileInput.onchange = (e)=>{
 
 const files = Array.from(e.target.files)
 
-/* 🔥 FILTER AUDIO ONLY */
+/* FILTER AUDIO ONLY */
 const audioFiles = files.filter(f => f.type.startsWith("audio"))
 
 if(audioFiles.length === 0){
@@ -2601,14 +2599,14 @@ return
 
 handleFiles(audioFiles)
 
-/* 🔥 RESET INPUT (VERY IMPORTANT) */
+/*  RESET INPUT  */
 fileInput.value = ""
 
 }
 
-/* ===============================
+/* 
 DRAG & DROP
-=============================== */
+*/
 dropZone.ondragover = (e)=>{
 e.preventDefault()
 dropZone.classList.add("dragover")
@@ -2640,11 +2638,82 @@ return
 
 handleFiles(audioFiles)
 }
-/* ===============================
+/* 
 LOAD FROM DB ON OPEN
-=============================== */
+ */
 loadLocalFromDB()
 
+}
+
+
+
+function renderAbout(){
+
+   const year = new Date().getFullYear()
+   const version = "v1.0.0"
+
+   pageContent.innerHTML = `
+   <div class="about-container">
+
+      <!-- 🔥 HERO SECTION -->
+      <div class="about-hero">
+         <img src="assets/logo.png" class="about-logo">
+         <h1>Safinex Music</h1>
+         <p>AI-powered next-gen music experience</p>
+         <span class="version">${version}</span>
+      </div>
+
+      <!-- 🚀 FEATURES -->
+      <div class="about-card">
+         <h3><i class="fa-solid fa-bolt"></i> Features</h3>
+         <div class="about-grid">
+            <div class="about-item">🎧 Smart AI Recommendations</div>
+            <div class="about-item">⚡ Zero-lag UI Experience</div>
+            <div class="about-item">🎯 Mood-based Filtering</div>
+            <div class="about-item">📂 Local File Support</div>
+            <div class="about-item">🔍 Advanced Search</div>
+            <div class="about-item">📊 Smart Queue System</div>
+         </div>
+      </div>
+
+      <!-- 📖 HOW TO USE -->
+      <div class="about-card">
+         <h3><i class="fa-solid fa-book"></i> How to Use</h3>
+         <ul>
+            <li>Use <b>Home</b> for personalized recommendations</li>
+            <li>Explore unlimited songs in <b>Explore</b></li>
+            <li>Click any track to play instantly</li>
+            <li>Use mood chips to filter songs</li>
+            <li>Manage queue for continuous playback</li>
+            <li>Upload songs via Local Files</li>
+         </ul>
+      </div>
+
+      <!-- 🧠 AI ENGINE -->
+      <div class="about-card highlight">
+         <h3><i class="fa-solid fa-brain"></i> AI Recommendation Engine</h3>
+         <p>
+            Safinex Music uses behavior-based learning — tracking your listening patterns,
+            moods, and interactions to dynamically adapt recommendations and queue.
+         </p>
+      </div>
+
+      <!-- 👨‍💻 DEVELOPER -->
+      <div class="about-card dev-card">
+         <h3><i class="fa-solid fa-user"></i> Developer</h3>
+         <p><b>SK Safiur Rahaman</b></p>
+         <p>Founder — Safinex Software Solutions</p>
+         <p>Building AI-driven web applications</p>
+      </div>
+
+      <!-- © FOOTER -->
+      <div class="about-footer">
+         <p>© ${year} Safinex Software Solutions</p>
+         <p>All Rights Reserved</p>
+      </div>
+
+   </div>
+   `
 }
 
 
@@ -2685,7 +2754,7 @@ cover = `data:${tag.tags.picture.format};base64,${btoa(base64String)}`
 if(tag.tags.picture){
 /* keep extracted cover */
 }else{
-cover = DEFAULT_COVER   // 🔥 USE YOUR DESIGN
+cover = DEFAULT_COVER   
 }
 }
 
@@ -2750,7 +2819,7 @@ db = e.target.result
 
 function saveLocalSong(file, title, artist, cover){
 
-/* 🔥 ADD THIS */
+/*  */
 if(!db){
 console.warn("DB not ready yet")
 setTimeout(()=>{
