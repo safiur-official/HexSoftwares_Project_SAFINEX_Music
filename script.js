@@ -40,6 +40,39 @@ let favoritePage = 0
 let chipCache = {}
 let exploreLoading = false
 let exploreScrollInitialized = false
+let lastPlaybackMode = null   // "local" | "online"
+let playbackMode = "online" 
+let isLocalSession = false
+
+
+function getLocalSongs(){
+   return songs.filter(s => s.isLocal)
+}
+
+function getOnlineSongs(){
+   return songs.filter(s => !s.isLocal)
+}
+
+
+function updatePlaybackBadge(mode){
+
+   const badge = document.getElementById("playbackBadge")
+   const text = document.getElementById("badgeText")
+
+   if(!badge || !text) return
+
+   badge.classList.remove("hidden","local","online")
+
+   if(mode === "local"){
+      badge.classList.add("local")
+      text.innerText = "Playing Local 🎵"
+   }else{
+      badge.classList.add("online")
+      text.innerText = "Playing Online 🌐"
+   }
+
+   playbackMode = mode
+}
 
 /* 
 SMART RECOMMENDATION ENGINE
@@ -101,6 +134,10 @@ function navigate(page){
 
 if(page !== "explore"){
 exploreScrollInitialized = false
+}
+
+if(page !== "local"){
+   isLocalSession = false
 }
 
 const routes = {
@@ -174,6 +211,7 @@ ROUTE RENDER FUNCTIONS
 
 
 async function renderHome(){
+   isLocalSession = false
 
 pageContent.innerHTML = homeHTML
 
@@ -197,6 +235,7 @@ preloadChips()
 
 
 async function renderExplore(){
+   isLocalSession = false
 
 pageContent.innerHTML = `
 <h2 style="margin-bottom:20px">Explore</h2>
@@ -626,9 +665,19 @@ function smartSortSongs(list){
 
 function generateSmartQueue(){
 
-   if(songs.length === 0) return
+   let pool = []
 
-   const pool = songs.filter((_,i)=> i !== currentSong)
+   const localSongs = getLocalSongs()
+
+   if(localSongs.length > 0){
+      // PRIORITY: LOCAL SONGS
+      pool = localSongs
+   }else{
+      //  FALLBACK: ONLINE SONGS
+      pool = getOnlineSongs()
+   }
+
+   if(pool.length === 0) return
 
    const sorted = smartSortSongs([...pool])
 
@@ -1065,9 +1114,22 @@ return
 /*  NEW SONG */
 currentSong = index
 
-queue = songs
-.map((_,i)=>i)
-.filter(i=>i !== index)
+const song = songs[index]
+
+if(song.isLocal){
+   isLocalSession = true
+}else{
+   isLocalSession = false
+}
+
+queue = []   
+
+if(song.isLocal){
+   queue = getLocalSongs()
+      .filter(s => s.id !== song.id)
+      .map(s => songs.findIndex(x => x.id === s.id))
+}
+
 
 loadSong(index)
 
@@ -1167,6 +1229,7 @@ queue.forEach(index=>{
 
 const song = songs[index]
 
+
 const item = document.createElement("div")
 item.className = "queue-item"
 
@@ -1241,6 +1304,27 @@ function loadSong(index){
 if(!songs[index]) return
 
 const song = songs[index]
+
+
+const currentMode = song.isLocal ? "local" : "online"
+
+/*  FORCE SYNC */
+updatePlaybackBadge(currentMode)
+
+/********  PLAYBACK MODE TOAST SYSTEM ********/
+
+
+if(currentMode !== lastPlaybackMode){
+
+   if(currentMode === "local"){
+      showToast("Playing Local Library")
+   }else{
+      showToast("Playing Online Music")
+   }
+
+   lastPlaybackMode = currentMode
+}
+
 /*  AI TRACKING START */
 userProfile.songs[song.id] = (userProfile.songs[song.id] || 0) + 3
 
@@ -1327,10 +1411,11 @@ history.unshift(song.id)
 
 localStorage.setItem("history",JSON.stringify(history))
 
+
+
 /* update queue panel */
 renderQueue()
 updatePlayingUI()
-generateSmartQueue()
 }
 
 
@@ -1393,12 +1478,29 @@ return
 }
 
 if(isShuffle){
-currentSong = Math.floor(Math.random() * songs.length)
-}else{
-currentSong--
-if(currentSong < 0){
-currentSong = songs.length - 1
+const localSongs = getLocalSongs()
+const pool = localSongs.length > 0 ? localSongs : getOnlineSongs()
+
+if(pool.length === 0) return
+
+const randomSong = pool[Math.floor(Math.random() * pool.length)]
+currentSong = songs.findIndex(s => s.id === randomSong.id)}else{
+const localSongs = getLocalSongs()
+const pool = isLocalSession && localSongs.length > 0
+   ? localSongs
+   : (localSongs.length > 0 ? localSongs : getOnlineSongs())
+
+const currentId = songs[currentSong]?.id
+const indexInPool = pool.findIndex(s => s.id === currentId)
+
+let prevIndex = indexInPool - 1
+
+if(prevIndex < 0){
+   prevIndex = pool.length - 1
 }
+
+currentSong = songs.findIndex(s => s.id === pool[prevIndex].id)
+
 }
 
 loadSong(currentSong)
@@ -1433,25 +1535,67 @@ return
 
 /* 🔀 SHUFFLE */
 if(isShuffle){
-currentSong = Math.floor(Math.random() * songs.length)
+   
+const localSongs = getLocalSongs()
+const pool = localSongs.length > 0 ? localSongs : getOnlineSongs()
+
+if(pool.length === 0) return
+
+const randomSong = pool[Math.floor(Math.random() * pool.length)]
+currentSong = songs.findIndex(s => s.id === randomSong.id)
+
 loadSong(currentSong)
 audio.play()
 return
 }
 
 /* ▶ NORMAL */
-currentSong++
-if(currentSong >= songs.length){
-if(repeatMode === 1){
-currentSong = 0
+let pool = []
+
+if(isLocalSession){
+   const localSongs = getLocalSongs()
+
+   if(localSongs.length > 0){
+      pool = localSongs
+   }else{
+      pool = getOnlineSongs()
+      isLocalSession = false
+   }
 }else{
-return
+   const localSongs = getLocalSongs()
+   pool = localSongs.length > 0 ? localSongs : getOnlineSongs()
 }
+
+const currentId = songs[currentSong]?.id
+const currentIndexInPool = pool.findIndex(s => s.id === currentId)
+
+/* SAFETY FIX */
+if(currentIndexInPool === -1){
+   currentSong = songs.findIndex(s => s.id === pool[0].id)
+   loadSong(currentSong)
+   audio.play()
+   generateSmartQueue()
+   return
 }
+
+let nextIndex = currentIndexInPool + 1
+
+if(nextIndex >= pool.length){
+   if(repeatMode === 1){
+      nextIndex = 0
+   }else{
+      return
+   }
+}
+
+
+
+currentSong = songs.findIndex(s => s.id === pool[nextIndex].id)
+
 
 loadSong(currentSong)
 audio.play()
-generateSmartQueue()
+
 }
 
 /* 
@@ -2551,7 +2695,12 @@ if(queuePanel && !queuePanel.contains(e.target)){
 })
 
 
+
 function renderLocal(){
+
+
+isLocalSession = true
+
 
 pageContent.innerHTML = `
 <h2 style="margin-bottom:20px">Local Files</h2>
@@ -2840,7 +2989,8 @@ title,
 artist,
 cover: cover || generatePremiumCover(title),
 
-src: reader.result
+src: reader.result,
+isLocal: true
 }
 
 const tx = db.transaction("songs", "readwrite")
