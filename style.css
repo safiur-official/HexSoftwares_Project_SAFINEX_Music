@@ -1998,48 +1998,73 @@ PLAYBACK STATUS BADGE
 =============================== */
 
 .playback-badge{
-   display:flex;
-   align-items:center;
-   gap:6px;
-   padding:6px 12px;
-   border-radius:20px;
-   font-size:12px;
-   background:rgba(255,255,255,0.08);
-   backdrop-filter:blur(10px);
-   color:#fff;
-   margin:0 10px;
-   transition:0.3s ease;
-   animation:fadeIn 0.4s ease;
+display:flex;
+align-items:center;
+gap:10px;
+padding:10px 16px;
+border-radius:999px;
+font-size:13px;
+font-weight:600;
+backdrop-filter:blur(18px);
+-webkit-backdrop-filter:blur(18px);
+background:rgba(255,255,255,0.08);
+border:1px solid rgba(255,255,255,0.12);
+color:#fff;
+white-space:nowrap;
+box-shadow:0 8px 30px rgba(0,0,0,0.25);
+transition:all 0.25s ease;
+margin-left:16px;
+opacity:1;
+transform:scale(1);
 }
 
 .playback-badge.hidden{
-   opacity:0;
-   transform:translateY(-10px);
-   pointer-events:none;
+display:none;
 }
 
-/* DOT ANIMATION */
-.playback-badge .dot{
-   width:8px;
-   height:8px;
-   border-radius:50%;
-   background:#1db954;
-   animation:pulse 1s infinite;
+.playback-badge.local{
+background:rgba(29,185,84,0.15);
+border:1px solid rgba(29,185,84,0.35);
+color:#9cffc1;
+box-shadow:0 0 24px rgba(29,185,84,0.18);
 }
 
-/* LOCAL MODE */
-.playback-badge.local .dot{
-   background:#1db954;
+.playback-badge.online{
+background:rgba(0,153,255,0.14);
+border:1px solid rgba(0,153,255,0.35);
+color:#8fd0ff;
+box-shadow:0 0 24px rgba(0,153,255,0.16);
 }
 
-/* ONLINE MODE */
-.playback-badge.online .dot{
-   background:#ff0033;
+.badge-dot{
+width:10px;
+height:10px;
+border-radius:50%;
+background:currentColor;
+box-shadow:0 0 10px currentColor;
+animation:badgePulse 1.5s infinite;
+flex-shrink:0;
 }
 
-/* PULSE */
-@keyframes pulse{
-   0%{transform:scale(1);opacity:1}
-   50%{transform:scale(1.5);opacity:0.6}
-   100%{transform:scale(1);opacity:1}
+@keyframes badgePulse{
+0%{transform:scale(1);opacity:1;}
+50%{transform:scale(1.35);opacity:0.65;}
+100%{transform:scale(1);opacity:1;}
 }
+
+.playback-badge.pulse{
+animation:badgePop 0.3s ease;
+}
+
+@keyframes badgePop{
+0%{transform:scale(0.92);}
+50%{transform:scale(1.06);}
+100%{transform:scale(1);}
+}
+
+@media (max-width: 900px){
+.playback-badge{
+display:none !important;
+}
+}
+

@@ -55,24 +55,30 @@ function getOnlineSongs(){
 
 
 function updatePlaybackBadge(mode){
-
    const badge = document.getElementById("playbackBadge")
    const text = document.getElementById("badgeText")
 
    if(!badge || !text) return
 
-   badge.classList.remove("hidden","local","online")
+   badge.classList.remove("hidden", "local", "online", "pulse")
 
    if(mode === "local"){
       badge.classList.add("local")
-      text.innerText = "Playing Local 🎵"
+      text.textContent = "Playing Local 🎵"
    }else{
       badge.classList.add("online")
-      text.innerText = "Playing Online 🌐"
+      text.textContent = "Playing Online 🌐"
    }
+
+   void badge.offsetWidth
+   badge.classList.add("pulse")
 
    playbackMode = mode
 }
+
+
+
+
 
 /* 
 SMART RECOMMENDATION ENGINE
@@ -491,10 +497,12 @@ const playBtn = document.getElementById("play")
 const nextBtn = document.getElementById("next")
 const prevBtn = document.getElementById("prev")
 
+
 audio.addEventListener("play", ()=>{
-	updatePlayingUI()
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+   updatePlayingUI()
+   playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
 })
+
 
 audio.addEventListener("pause", ()=>{
 	updatePlayingUI()
@@ -1116,11 +1124,6 @@ currentSong = index
 
 const song = songs[index]
 
-if(song.isLocal){
-   isLocalSession = true
-}else{
-   isLocalSession = false
-}
 
 queue = []   
 
@@ -1305,25 +1308,10 @@ if(!songs[index]) return
 
 const song = songs[index]
 
+/*  REAL SOURCE OF TRUTH */
+isLocalSession = !!song.isLocal
+updatePlaybackBadge(song.isLocal ? "local" : "online")
 
-const currentMode = song.isLocal ? "local" : "online"
-
-/*  FORCE SYNC */
-updatePlaybackBadge(currentMode)
-
-/********  PLAYBACK MODE TOAST SYSTEM ********/
-
-
-if(currentMode !== lastPlaybackMode){
-
-   if(currentMode === "local"){
-      showToast("Playing Local Library")
-   }else{
-      showToast("Playing Online Music")
-   }
-
-   lastPlaybackMode = currentMode
-}
 
 /*  AI TRACKING START */
 userProfile.songs[song.id] = (userProfile.songs[song.id] || 0) + 3
@@ -1478,29 +1466,25 @@ return
 }
 
 if(isShuffle){
-const localSongs = getLocalSongs()
-const pool = localSongs.length > 0 ? localSongs : getOnlineSongs()
+   const currentSongObj = songs[currentSong]
+   const pool = currentSongObj?.isLocal ? getLocalSongs() : getOnlineSongs()
+   if(pool.length === 0) return
+   const randomSong = pool[Math.floor(Math.random() * pool.length)]
+   currentSong = songs.findIndex(s => s.id === randomSong.id)
+}else{
+   const currentSongObj = songs[currentSong]
+   const pool = currentSongObj?.isLocal ? getLocalSongs() : getOnlineSongs()
+   if(pool.length === 0) return
 
-if(pool.length === 0) return
+   const currentId = currentSongObj?.id
+   const indexInPool = pool.findIndex(s => s.id === currentId)
 
-const randomSong = pool[Math.floor(Math.random() * pool.length)]
-currentSong = songs.findIndex(s => s.id === randomSong.id)}else{
-const localSongs = getLocalSongs()
-const pool = isLocalSession && localSongs.length > 0
-   ? localSongs
-   : (localSongs.length > 0 ? localSongs : getOnlineSongs())
+   let prevIndex = indexInPool - 1
+   if(prevIndex < 0){
+      prevIndex = pool.length - 1
+   }
 
-const currentId = songs[currentSong]?.id
-const indexInPool = pool.findIndex(s => s.id === currentId)
-
-let prevIndex = indexInPool - 1
-
-if(prevIndex < 0){
-   prevIndex = pool.length - 1
-}
-
-currentSong = songs.findIndex(s => s.id === pool[prevIndex].id)
-
+   currentSong = songs.findIndex(s => s.id === pool[prevIndex].id)
 }
 
 loadSong(currentSong)
@@ -1551,21 +1535,17 @@ return
 
 /* ▶ NORMAL */
 let pool = []
+const currentSongObj = songs[currentSong]
 
-if(isLocalSession){
-   const localSongs = getLocalSongs()
-
-   if(localSongs.length > 0){
-      pool = localSongs
-   }else{
-      pool = getOnlineSongs()
-      isLocalSession = false
-   }
+if(currentSongObj?.isLocal){
+   pool = getLocalSongs()
 }else{
-   const localSongs = getLocalSongs()
-   pool = localSongs.length > 0 ? localSongs : getOnlineSongs()
+   pool = getOnlineSongs()
 }
 
+if(pool.length === 0){
+   pool = songs
+}
 const currentId = songs[currentSong]?.id
 const currentIndexInPool = pool.findIndex(s => s.id === currentId)
 
@@ -1679,22 +1659,21 @@ SONG ENDED
 
 audio.addEventListener("ended",()=>{
 
-/* remove saved progress */
+   const song = songs[currentSong]
 
-const song = songs[currentSong]
+   /*  CLEAN MEMORY */
+   let progressMemory =
+   JSON.parse(localStorage.getItem("songProgress")) || {}
 
-let progressMemory =
-JSON.parse(localStorage.getItem("songProgress")) || {}
+   delete progressMemory[song.id]
 
-delete progressMemory[song.id]
+   localStorage.setItem(
+   "songProgress",
+   JSON.stringify(progressMemory)
+   )
 
-localStorage.setItem(
-"songProgress",
-JSON.stringify(progressMemory)
-)
-
-playNext()
-
+   /*  NEXT SONG (BADGE AUTO SYNC VIA loadSong) */
+   playNext()
 })
 
 /* 
@@ -2109,6 +2088,12 @@ loadRouteFromURL()
 setTimeout(()=>{
 loadSongsFromAPI()
 },100)
+
+
+/*  INITIAL BADGE BOOT */
+setTimeout(()=>{
+   updatePlaybackBadge("online")
+},300)
 
 
 

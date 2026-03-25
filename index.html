@@ -35,16 +35,21 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 </div>
 
-<div id="playbackBadge" class="playback-badge hidden">
-   <span class="dot"></span>
-   <span id="badgeText">Playing</span>
+<div class="search-bar">
+<i class="fa-solid fa-magnifying-glass"></i>
+<input id="searchInput" type="text" placeholder="Search songs...">
+
+<div class="search-results" id="searchResults">
+<div id="recentSearchList"></div>
+<div id="trendingSearchList"></div>
+<div class="search-content"></div>
+</div>
 </div>
 
-<div class="search-bar">
-
-<i class="fa-solid fa-magnifying-glass"></i>
-
-<input id="searchInput" type="text" placeholder="Search songs...">
+<div id="playbackBadge" class="playback-badge hidden">
+   <span class="badge-dot"></span>
+   <span id="badgeText">Playing Online</span>
+</div>
 
 <!--  SEARCH DROPDOWN -->
 <div class="search-results" id="searchResults">
