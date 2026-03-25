@@ -24,6 +24,8 @@ let songs = []
 let currentSong = 0
 let queue = []
 
+let currentPageName = "home"
+
 let likedSongs =
 JSON.parse(localStorage.getItem("likedSongs")) || []
 
@@ -57,6 +59,9 @@ function getCurrentSong(){
    return songs[currentSong] || null
 }
 
+function shouldStayInLocalOnly(){
+   return currentPageName === "local"
+}
 
 function updatePlaybackBadge(mode, force = false){
    const badge = document.getElementById("playbackBadge")
@@ -148,6 +153,7 @@ APP ROUTER
 
 
 function navigate(page){
+currentPageName = page
 
 if(page !== "explore"){
 exploreScrollInitialized = false
@@ -179,6 +185,7 @@ updateSidebarActive(page)
 }
 
 function navigateWithoutPush(page){
+currentPageName = page
 
 const routes = {
 home: renderHome,
@@ -1480,9 +1487,16 @@ return
 }
 
 if(isShuffle){
-   const currentSongObj = songs[currentSong]
-   const pool = currentSongObj?.isLocal ? getLocalSongs() : getOnlineSongs()
-   if(pool.length === 0) return
+const currentSongObj = songs[currentSong]
+let pool = []
+
+if(currentSongObj?.isLocal){
+   pool = getLocalSongs()
+}else{
+   pool = getOnlineSongs()
+}
+
+if(pool.length === 0) return
    const randomSong = pool[Math.floor(Math.random() * pool.length)]
    currentSong = songs.findIndex(s => s.id === randomSong.id)
 }else{
@@ -1547,19 +1561,41 @@ audio.play()
 return
 }
 
-/* ▶ NORMAL */
+
 let pool = []
 const currentSongObj = songs[currentSong]
+const localSongs = getLocalSongs()
+const onlineSongs = getOnlineSongs()
 
+/*  PAGE-AWARE PLAYBACK LOGIC */
 if(currentSongObj?.isLocal){
-   pool = getLocalSongs()
+   if(shouldStayInLocalOnly()){
+      // Local tab → stay only in local loop
+      pool = localSongs
+   }else{
+      // Other tabs → local finishes, then switch to online
+      const currentId = currentSongObj.id
+      const localIndex = localSongs.findIndex(s => s.id === currentId)
+
+      if(localIndex !== -1 && localIndex < localSongs.length - 1){
+         // still local songs remaining
+         pool = localSongs
+      }else{
+         // local playlist completed → move to online
+         pool = onlineSongs
+      }
+   }
 }else{
-   pool = getOnlineSongs()
+   // online song continues in online pool
+   pool = onlineSongs
 }
 
 if(pool.length === 0){
    pool = songs
 }
+
+
+
 const currentId = songs[currentSong]?.id
 const currentIndexInPool = pool.findIndex(s => s.id === currentId)
 
@@ -1575,7 +1611,10 @@ if(currentIndexInPool === -1){
 let nextIndex = currentIndexInPool + 1
 
 if(nextIndex >= pool.length){
-   if(repeatMode === 1){
+   if(shouldStayInLocalOnly() && currentSongObj?.isLocal){
+      // Local page always loops local songs
+      nextIndex = 0
+   }else if(repeatMode === 1){
       nextIndex = 0
    }else{
       return
