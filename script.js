@@ -53,27 +53,38 @@ function getOnlineSongs(){
    return songs.filter(s => !s.isLocal)
 }
 
+function getCurrentSong(){
+   return songs[currentSong] || null
+}
 
-function updatePlaybackBadge(mode){
+
+function updatePlaybackBadge(mode, force = false){
    const badge = document.getElementById("playbackBadge")
    const text = document.getElementById("badgeText")
 
    if(!badge || !text) return
 
+   //  prevent useless refresh/flicker
+   if(!force && lastPlaybackMode === mode){
+      return
+   }
+
    badge.classList.remove("hidden", "local", "online", "pulse")
 
    if(mode === "local"){
       badge.classList.add("local")
-      text.textContent = "Playing Local 🎵"
+      text.textContent = "📂 🎵"
    }else{
       badge.classList.add("online")
-      text.textContent = "Playing Online 🌐"
+      text.textContent = "🌐 🎵"
    }
 
+   // animate ONLY when mode actually changes
    void badge.offsetWidth
    badge.classList.add("pulse")
 
    playbackMode = mode
+   lastPlaybackMode = mode
 }
 
 
@@ -1122,20 +1133,18 @@ return
 /*  NEW SONG */
 currentSong = index
 
-const song = songs[index]
+const selectedSong = songs[index]
+if(!selectedSong) return
 
+queue = []
 
-queue = []   
-
-if(song.isLocal){
+if(selectedSong.isLocal){
    queue = getLocalSongs()
-      .filter(s => s.id !== song.id)
+      .filter(s => s.id !== selectedSong.id)
       .map(s => songs.findIndex(x => x.id === s.id))
 }
 
-
 loadSong(index)
-
 audio.play().catch(()=>{})
 
 })
@@ -1304,13 +1313,18 @@ LOAD SONG
  */
 
 function loadSong(index){
-if(!songs[index]) return
+if(index < 0 || index >= songs.length) return
 
+currentSong = index
 const song = songs[index]
+if(!song) return
 
-/*  REAL SOURCE OF TRUTH */
+/*  hard source sync */
 isLocalSession = !!song.isLocal
-updatePlaybackBadge(song.isLocal ? "local" : "online")
+playbackMode = song.isLocal ? "local" : "online"
+
+/*  update badge ONLY on song switch */
+updatePlaybackBadge(playbackMode)
 
 
 /*  AI TRACKING START */
@@ -1786,7 +1800,7 @@ const albumsData = await albumsRes.json()
 searchContent.innerHTML = ""
 
 /* 
-🎵 SONGS SECTION
+ SONGS SECTION
  */
 if(tracksData.results.length){
 
@@ -2028,7 +2042,7 @@ return
 }
 
 /* 
-🎵 EXISTING USER (NORMAL FLOW)
+ EXISTING USER (NORMAL FLOW)
  */
 
 heroImage.src = getValidCover(recent.cover)
@@ -2091,8 +2105,9 @@ loadSongsFromAPI()
 
 
 /*  INITIAL BADGE BOOT */
+
 setTimeout(()=>{
-   updatePlaybackBadge("online")
+   updatePlaybackBadge("online", true)
 },300)
 
 
@@ -2557,7 +2572,7 @@ const grid = document.getElementById("searchPageGrid")
 showSkeletonGrid(grid)
 
 /* 
-🎵 SONG SEARCH
+ SONG SEARCH
  */
 if(type === "songs"){
 const res = await fetch(
@@ -3010,21 +3025,27 @@ const store = tx.objectStore("songs")
 const request = store.getAll()
 
 request.onsuccess = function(){
+   const grid = document.getElementById("localGrid")
+   if(!grid) return
 
-const grid = document.getElementById("localGrid")
-if(!grid) return
+   grid.innerHTML = ""
 
-request.result.forEach(song=>{
+   request.result.forEach(song => {
+      const localSong = {
+         ...song,
+         isLocal: true // 🔥 force safety
+      }
 
+      if(!songs.some(s => s.id === localSong.id)){
+         songs.push(localSong)
+      }else{
+         const existingIndex = songs.findIndex(s => s.id === localSong.id)
+         songs[existingIndex] = localSong
+      }
 
-if(!songs.some(s => s.id === song.id)){
-songs.push(song)
-}
-const index = songs.findIndex(s => s.id === song.id)
-grid.appendChild(createSongCard(song, index))
-
-})
-
+      const index = songs.findIndex(s => s.id === localSong.id)
+      grid.appendChild(createSongCard(localSong, index))
+   })
 }
 
 }

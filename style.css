@@ -2023,17 +2023,17 @@ display:none;
 }
 
 .playback-badge.local{
+background:rgba(243, 28, 129, 0.14);
+border:1px solid rgba(255, 0, 0, 0.35);
+color:#f10641;
+box-shadow:0 0 24px rgba(241, 9, 20, 0.16);
+}
+
+.playback-badge.online{
 background:rgba(29,185,84,0.15);
 border:1px solid rgba(29,185,84,0.35);
 color:#9cffc1;
 box-shadow:0 0 24px rgba(29,185,84,0.18);
-}
-
-.playback-badge.online{
-background:rgba(0,153,255,0.14);
-border:1px solid rgba(0,153,255,0.35);
-color:#8fd0ff;
-box-shadow:0 0 24px rgba(0,153,255,0.16);
 }
 
 .badge-dot{
