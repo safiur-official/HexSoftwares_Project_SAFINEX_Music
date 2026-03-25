@@ -26,6 +26,9 @@ let queue = []
 
 let currentPageName = "home"
 
+let isLocalSelectMode = false
+let selectedLocalSongs = new Set()
+
 let likedSongs =
 JSON.parse(localStorage.getItem("likedSongs")) || []
 
@@ -1060,101 +1063,114 @@ function createSongCard(song,index){
 const card = document.createElement("div")
 card.className = "song-card"
 
-/* 🔥 ADD THIS */
+/*  ADD THIS */
 card.setAttribute("data-index", index)
 
 card.innerHTML = `
+<div class="select-checkbox"></div>
 
 <button class="song-menu-btn">
 <span class="material-icons">more_vert</span>
 </button>
 
 <div class="song-menu">
-
-<div class="menu-item play-next">
-<span class="material-icons">queue_play_next</span>
-Play next
+   <div class="menu-item play-next">
+      <span class="material-icons">queue_play_next</span>
+      Play next
+   </div>
+   <div class="menu-item add-queue">
+      <span class="material-icons">playlist_add</span>
+      Add to queue
+   </div>
+   <div class="menu-item save-library">
+      <span class="material-icons">bookmark_add</span>
+      Save to library
+   </div>
+   <div class="menu-item remove-queue">
+      <span class="material-icons">playlist_remove</span>
+      Remove from queue
+   </div>
+   ${
+      song.isLocal
+      ? `
+      <div class="menu-item delete-local">
+         <span class="material-icons">delete</span>
+         Delete Song
+      </div>
+      `
+      : ""
+   }
 </div>
-
-<div class="menu-item add-queue">
-<span class="material-icons">playlist_add</span>
-Add to queue
-</div>
-
-<div class="menu-item save-library">
-<span class="material-icons">bookmark_add</span>
-Save to library
-</div>
-
-<div class="menu-item remove-queue">
-<span class="material-icons">playlist_remove</span>
-Remove from queue
-</div>
-
-</div>
-
 
 <div class="card-image">
-<img src="${getValidCover(song.cover)}">
-
-<div class="play-overlay">
-<i class="fa-solid fa-play"></i>
-</div>
-
-<div class="equalizer">
-<span></span>
-<span></span>
-<span></span>
-</div>
-
+   <img src="${getValidCover(song.cover)}">
+   <div class="play-overlay">
+      <i class="fa-solid fa-play"></i>
+   </div>
+   <div class="equalizer">
+      <span></span>
+      <span></span>
+      <span></span>
+   </div>
 </div>
 
 <h4>${song.title}</h4>
 <p>${song.artist}</p>
-
 `
 
+if(isLocalSelectMode && song.isLocal && currentPageName === "local"){
+   card.classList.add("select-mode")
+}
+
+if(selectedLocalSongs.has(song.id)){
+   card.classList.add("selected")
+}
 
 
 
 /* play song */
 card.addEventListener("click", (e) => {
+   if(e.target.closest(".song-menu") || e.target.closest(".song-menu-btn")){
+      return
+   }
 
-/* 🔥 ignore menu clicks */
-if(e.target.closest(".song-menu") || e.target.closest(".song-menu-btn")){
-return
-}
+   const selectedSong = songs[index]
+   if(!selectedSong) return
 
-/*  SAME SONG CLICKED */
-if(currentSong === index){
+   // 🔥 MULTI-SELECT MODE FOR LOCAL SONGS
+   if(isLocalSelectMode && selectedSong.isLocal && currentPageName === "local"){
+      if(selectedLocalSongs.has(selectedSong.id)){
+         selectedLocalSongs.delete(selectedSong.id)
+         card.classList.remove("selected")
+      }else{
+         selectedLocalSongs.add(selectedSong.id)
+         card.classList.add("selected")
+      }
 
-if(audio.paused){
-audio.play().catch(()=>{})
-}else{
-audio.pause()
-}
+      renderLocalActionBar()
+      return
+   }
 
-return
-}
+   if(currentSong === index){
+      if(audio.paused){
+         audio.play().catch(()=>{})
+      }else{
+         audio.pause()
+      }
+      return
+   }
 
-/*  NEW SONG */
-currentSong = index
+   queue = []
 
-const selectedSong = songs[index]
-if(!selectedSong) return
+   if(selectedSong.isLocal && currentPageName === "local"){
+      queue = getLocalSongs()
+         .filter(s => s.id !== selectedSong.id)
+         .map(s => songs.findIndex(x => x.id === s.id))
+   }
 
-queue = []
-
-if(selectedSong.isLocal){
-   queue = getLocalSongs()
-      .filter(s => s.id !== selectedSong.id)
-      .map(s => songs.findIndex(x => x.id === s.id))
-}
-
-loadSong(index)
-audio.play().catch(()=>{})
-
+   loadSong(index, true)
 })
+
 
 /* menu toggle */
 
@@ -1176,12 +1192,25 @@ menu.classList.toggle("active")
 menu.querySelector(".play-next").onclick = (e)=>{
 e.stopPropagation()
 
+const selectedSong = songs[index]
+const currentSongObj = songs[currentSong]
+
+if(currentPageName === "local"){
+   if(!selectedSong?.isLocal){
+      showToast("Only local songs allowed in Local tab")
+      return
+   }
+}else{
+   if(currentSongObj?.isLocal && selectedSong?.isLocal){
+      // okay
+   }else if(currentSongObj?.isLocal && !selectedSong?.isLocal){
+      // okay for switching after locals
+   }
+}
+
 queue.unshift(index)
-
 showToast("Playing next")
-
 renderQueue()
-
 menu.classList.remove("active")
 }
 
@@ -1190,12 +1219,16 @@ menu.classList.remove("active")
 menu.querySelector(".add-queue").onclick = (e)=>{
 e.stopPropagation()
 
+const selectedSong = songs[index]
+
+if(currentPageName === "local" && !selectedSong?.isLocal){
+   showToast("Only local songs allowed in Local tab")
+   return
+}
+
 queue.push(index)
-
 showToast("Added to queue")
-
 renderQueue()
-
 menu.classList.remove("active")
 }
 
@@ -1226,6 +1259,36 @@ showToast("Removed from queue")
 renderQueue()
 
 menu.classList.remove("active")
+}
+
+const deleteLocalBtn = menu.querySelector(".delete-local")
+if(deleteLocalBtn){
+   deleteLocalBtn.onclick = (e) => {
+      e.stopPropagation()
+
+      const selectedSong = songs[index]
+      if(!selectedSong || !selectedSong.isLocal) return
+
+      const deletingCurrent = songs[currentSong]?.id === selectedSong.id
+
+      deleteLocalSongFromDB(selectedSong.id)
+
+      songs = songs.filter(s => s.id !== selectedSong.id)
+      queue = []
+
+      if(deletingCurrent){
+         audio.pause()
+         audio.src = ""
+         songName.textContent = "Song Title"
+         artistName.textContent = "Artist"
+         playerCover.src = ""
+         musicPlayer.classList.remove("active")
+         updatePlaybackBadge("online", true)
+      }
+
+      showToast("Local song deleted")
+      refreshLocalGrid()
+   }
 }
 
 return card
@@ -1319,7 +1382,7 @@ renderQueue()
 LOAD SONG
  */
 
-function loadSong(index){
+function loadSong(index, autoPlay = false){
 if(index < 0 || index >= songs.length) return
 
 currentSong = index
@@ -1364,7 +1427,30 @@ if(song.mood){
 userProfile.artists[song.artist] =
    (userProfile.artists[song.artist] || 0) + 1
 
+audio.pause()
 audio.src = song.src
+audio.load()
+
+if(autoPlay){
+   const safePlay = () => {
+      audio.play()
+      .then(()=>{
+         playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
+      })
+      .catch(err=>{
+         console.warn("Autoplay blocked:", err)
+      })
+   }
+
+   if(song.isLocal){
+      audio.oncanplay = () => {
+         audio.oncanplay = null
+         safePlay()
+      }
+   }else{
+      safePlay()
+   }
+}
 
 /* RESUME ONLY LAST PLAYED SONG */
 const progressMemory =
@@ -1515,12 +1601,8 @@ if(pool.length === 0) return
    currentSong = songs.findIndex(s => s.id === pool[prevIndex].id)
 }
 
-loadSong(currentSong)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
+loadSong(currentSong, true)
+
 
 }
 
@@ -1533,15 +1615,13 @@ function playNext(){
 /* 🔥 QUEUE FIRST */
 if(queue.length > 0){
 currentSong = queue.shift()
-loadSong(currentSong)
-audio.play()
+loadSong(currentSong, true)
 return
 }
 
 /* 🔁 REPEAT ONE */
 if(repeatMode === 2){
-loadSong(currentSong)
-audio.play()
+loadSong(currentSong, true)
 return
 }
 
@@ -1556,8 +1636,7 @@ if(pool.length === 0) return
 const randomSong = pool[Math.floor(Math.random() * pool.length)]
 currentSong = songs.findIndex(s => s.id === randomSong.id)
 
-loadSong(currentSong)
-audio.play()
+loadSong(currentSong, true)
 return
 }
 
@@ -1626,8 +1705,7 @@ if(nextIndex >= pool.length){
 currentSong = songs.findIndex(s => s.id === pool[nextIndex].id)
 
 
-loadSong(currentSong)
-audio.play()
+loadSong(currentSong, true)
 
 }
 
@@ -2097,12 +2175,9 @@ heroPlay.onclick = () => {
 const index = songs.findIndex(song => song.id === recent.id)
 if(index !== -1){
 currentSong = index
-loadSong(index)
-audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
+
+loadSong(index, true)
+
 }
 }
 }
@@ -2491,12 +2566,7 @@ cover: getValidCover(recentRaw.cover)
 
 		if (index !== -1) {
 			currentSong = index
-			loadSong(index)
-			audio.play().then(()=>{
-playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'
-}).catch(err=>{
-console.warn("Play blocked:", err)
-})
+         loadSong(index, true)
 		}
 	}
 }
@@ -2736,37 +2806,42 @@ if(queuePanel && !queuePanel.contains(e.target)){
 
 
 function renderLocal(){
-
-
 isLocalSession = true
-
-
 pageContent.innerHTML = `
-<h2 style="margin-bottom:20px">Local Files</h2>
+<div class="local-header">
+   <h2>Local Files</h2>
+   <button id="toggleSelectModeBtn">Select Songs</button>
+</div>
 
-<!-- 🔥 ADD THIS INPUT -->
 <input type="file" id="localFileInput" multiple accept="audio/*" style="display:none">
 
 <div class="local-upload-area" id="dropZone">
-
-<div class="upload-progress" id="uploadProgress" style="display:none">
-<div class="progress-bar" id="progressBar"></div>
-</div>
-
-<i class="fa-solid fa-music upload-icon"></i>
-<p>Drag & Drop Music Here</p>
-
-<button id="loadLocalBtn" class="glass-btn">Load from Device</button>
-
+   <div class="upload-progress" id="uploadProgress" style="display:none">
+      <div class="progress-bar" id="progressBar"></div>
+   </div>
+   <i class="fa-solid fa-music upload-icon"></i>
+   <p>Drag & Drop Music Here</p>
+   <button id="loadLocalBtn" class="glass-btn">Load from Device</button>
 </div>
 
 <div class="song-grid" id="localGrid"></div>
 `
 
+
 const btn = document.getElementById("loadLocalBtn")
 const fileInput = document.getElementById("localFileInput")
 const dropZone = document.getElementById("dropZone")
 const grid = document.getElementById("localGrid")
+
+const toggleSelectModeBtn = document.getElementById("toggleSelectModeBtn")
+
+toggleSelectModeBtn.onclick = () => {
+   isLocalSelectMode = !isLocalSelectMode
+   if(!isLocalSelectMode){
+      selectedLocalSongs.clear()
+   }
+   refreshLocalGrid()
+}
 
 btn.onclick = () => fileInput.click()
 
@@ -2830,6 +2905,7 @@ handleFiles(audioFiles)
 LOAD FROM DB ON OPEN
  */
 loadLocalFromDB()
+renderLocalActionBar()
 
 }
 
@@ -3022,12 +3098,25 @@ reader.onload = function(){
 
 	console.log("Saved:", title)
 
+const cleanTitle = (title || file.name).trim()
+const cleanArtist = (artist || "Unknown").trim()
+
+const duplicateExists = songs.some(song =>
+   song.isLocal &&
+   song.title.trim().toLowerCase() === cleanTitle.toLowerCase() &&
+   song.artist.trim().toLowerCase() === cleanArtist.toLowerCase()
+)
+
+if(duplicateExists){
+   showToast(`Skipped duplicate: ${cleanTitle}`)
+   return
+}
+
 const songData = {
 id: "local_" + Date.now() + Math.random(),
-title,
-artist,
-cover: cover || generatePremiumCover(title),
-
+title: cleanTitle,
+artist: cleanArtist,
+cover: cover || generatePremiumCover(cleanTitle),
 src: reader.result,
 isLocal: true
 }
@@ -3036,17 +3125,9 @@ const tx = db.transaction("songs", "readwrite")
 const store = tx.objectStore("songs")
 store.add(songData)
 
-/* add to UI */
 songs.push(songData)
 updatePlayingUI()
-const index = songs.length - 1
-
-const grid = document.getElementById("localGrid")
-if(grid){
-grid.appendChild(createSongCard(songData, index))
-
-
-}
+refreshLocalGrid()
 
 }
 
@@ -3088,6 +3169,114 @@ request.onsuccess = function(){
 }
 
 }
+
+function deleteLocalSongFromDB(songId){
+   if(!db) return
+
+   const tx = db.transaction("songs", "readwrite")
+   const store = tx.objectStore("songs")
+   store.delete(songId)
+}
+
+function deleteMultipleLocalSongs(songIds){
+   if(!db || !songIds.length) return
+
+   const tx = db.transaction("songs", "readwrite")
+   const store = tx.objectStore("songs")
+
+   songIds.forEach(id => store.delete(id))
+}
+
+function refreshLocalGrid(){
+   if(currentPageName !== "local") return
+
+   const grid = document.getElementById("localGrid")
+   if(!grid) return
+
+   grid.innerHTML = ""
+
+   const localSongs = getLocalSongs()
+
+   if(localSongs.length === 0){
+      grid.innerHTML = `
+         <p style="color:#aaa;font-size:14px">
+            No local songs uploaded yet
+         </p>
+      `
+      return
+   }
+
+   localSongs.forEach(song => {
+      const index = songs.findIndex(s => s.id === song.id)
+      if(index !== -1){
+         grid.appendChild(createSongCard(song, index))
+      }
+   })
+
+   renderLocalActionBar()
+}
+
+function exitLocalSelectMode(){
+   isLocalSelectMode = false
+   selectedLocalSongs.clear()
+   refreshLocalGrid()
+}
+
+function renderLocalActionBar(){
+   const existing = document.getElementById("localActionsBar")
+   if(existing) existing.remove()
+
+   if(currentPageName !== "local") return
+
+   const page = document.getElementById("pageContent")
+   if(!page) return
+
+   const bar = document.createElement("div")
+   bar.id = "localActionsBar"
+   bar.className = `local-actions-bar ${isLocalSelectMode ? "active" : ""}`
+
+   bar.innerHTML = `
+      <span id="selectedCount">${selectedLocalSongs.size} selected</span>
+      <button id="deleteSelectedBtn" class="danger-btn">Delete Selected</button>
+      <button id="cancelSelectBtn" class="ghost-btn">Cancel</button>
+   `
+
+   page.appendChild(bar)
+
+   document.getElementById("deleteSelectedBtn").onclick = deleteSelectedLocalSongs
+   document.getElementById("cancelSelectBtn").onclick = exitLocalSelectMode
+}
+
+function deleteSelectedLocalSongs(){
+   const ids = Array.from(selectedLocalSongs)
+   if(ids.length === 0){
+      showToast("No songs selected")
+      return
+   }
+
+   // if currently playing song is deleted → stop playback safely
+   const currentSongObj = songs[currentSong]
+   const deletingCurrent = currentSongObj && ids.includes(currentSongObj.id)
+
+   deleteMultipleLocalSongs(ids)
+
+   songs = songs.filter(song => !ids.includes(song.id))
+   queue = []
+
+   if(deletingCurrent){
+      audio.pause()
+      audio.src = ""
+      songName.textContent = "Song Title"
+      artistName.textContent = "Artist"
+      playerCover.src = ""
+      musicPlayer.classList.remove("active")
+      updatePlaybackBadge("online", true)
+   }
+
+   showToast(`${ids.length} song(s) deleted`)
+   exitLocalSelectMode()
+}
+
 
 
 function updatePlayingUI(){
