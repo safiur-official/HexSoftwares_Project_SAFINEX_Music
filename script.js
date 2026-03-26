@@ -29,8 +29,7 @@ let currentPageName = "home"
 let isLocalSelectMode = false
 let selectedLocalSongs = new Set()
 
-let likedSongs =
-JSON.parse(localStorage.getItem("likedSongs")) || []
+let likedSongs = []
 
 let isShuffle = false
 let repeatMode = 0
@@ -49,11 +48,15 @@ let lastPlaybackMode = null   // "local" | "online"
 let playbackMode = "online" 
 let isLocalSession = false
 
+let currentSearchType = "songs"
+let currentSearchValue = ""
+
 
 function getLocalSongs(){
-   return songs.filter(s => s.isLocal)
+   return songs.filter(
+      s => s.isLocal && (s.ownerId || GUEST_STORAGE_PREFIX) === getStorageOwnerId()
+   )
 }
-
 function getOnlineSongs(){
    return songs.filter(s => !s.isLocal)
 }
@@ -109,10 +112,6 @@ let userProfile = {
    recent: [],
    lastUpdated: Date.now()
 }
-const savedProfile = JSON.parse(localStorage.getItem("userProfile"))
-if(savedProfile){
-   userProfile = savedProfile
-}
 
 let chipPreload = {}
 
@@ -155,56 +154,62 @@ APP ROUTER
  */
 
 
-function navigate(page){
-currentPageName = page
+async function navigate(page){
+  currentPageName = page
 
-if(page !== "explore"){
-exploreScrollInitialized = false
+  if(page !== "explore"){
+    exploreScrollInitialized = false
+  }
+
+  if(page !== "local"){
+    isLocalSession = false
+  }
+
+  const routes = {
+    home: renderHome,
+    explore: renderExplore,
+    library: renderLibrary,
+    liked: renderLiked,
+    history: renderHistory,
+    local: renderLocal,
+    about: renderAbout,
+    search: renderSearchPage,
+    account: renderAccountPage
+  }
+
+  history.pushState({}, "", "/#/" + page)
+
+  if(routes[page]){
+    await routes[page]()
+  }else{
+    await renderHome()
+  }
+
+  updateSidebarActive(page)
 }
 
-if(page !== "local"){
-   isLocalSession = false
-}
+async function navigateWithoutPush(page){
+  currentPageName = page
 
-const routes = {
-home: renderHome,
-explore: renderExplore,
-library: renderLibrary,
-liked: renderLiked,
-history: renderHistory,
-local: renderLocal,
-about: renderAbout
-}
+  const routes = {
+    home: renderHome,
+    explore: renderExplore,
+    library: renderLibrary,
+    liked: renderLiked,
+    history: renderHistory,
+    local: renderLocal,
+    about: renderAbout,
+    search: renderSearchPage,
+    account: renderAccountPage
+  }
 
-/* CLEAN HASH ROUTING */
-history.pushState({}, "", "/#/" + page)
+  if(routes[page]){
+    await routes[page]()
+  }else{
+    await renderHome()
+  }
 
-if(routes[page]){
-routes[page]()
-}
-
-updateSidebarActive(page)
-
-}
-
-function navigateWithoutPush(page){
-currentPageName = page
-
-const routes = {
-home: renderHome,
-explore: renderExplore,
-library: renderLibrary,
-liked: renderLiked,
-history: renderHistory,
-local: renderLocal
-}
-
-if(routes[page]){
-routes[page]()
-}
-
-updateSidebarActive(page)
-
+  updateSidebarActive(page)
 }
 
 function updateSidebarActive(page){
@@ -447,7 +452,7 @@ pageContent.innerHTML = `
 
 const grid = document.getElementById("historyGrid")
 
-const history = JSON.parse(localStorage.getItem("history")) || []
+const history = getUserStorage("history", []) || []
 
 history.forEach(id=>{
 const index = songs.findIndex(s=>s.id===id)
@@ -825,8 +830,7 @@ removeSkeletonSmooth()
 
 function loadListenAgain(){
 
-const history =
-JSON.parse(localStorage.getItem("history")) || []
+const history = getUserStorage("history", []) || []
 
 /* FALLBACK IF EMPTY */
 if(history.length === 0){
@@ -1239,7 +1243,7 @@ e.stopPropagation()
 
 if(!likedSongs.includes(song.id)){
 likedSongs.push(song.id)
-localStorage.setItem("likedSongs",JSON.stringify(likedSongs))
+setUserStorage("likedSongs", likedSongs)
 }
 
 showToast("Saved to library")
@@ -1411,7 +1415,7 @@ userProfile.artists[song.artist] =
 userProfile.recent.unshift(song.id)
 userProfile.recent = userProfile.recent.slice(0, 30)
 
-localStorage.setItem("userProfile", JSON.stringify(userProfile))
+saveUserProfile()
 /*  AI TRACKING END */
 
 
@@ -1453,10 +1457,10 @@ if(autoPlay){
 }
 
 /* RESUME ONLY LAST PLAYED SONG */
-const progressMemory =
-JSON.parse(localStorage.getItem("songProgress")) || {}
+const progressMemory = getUserStorage("songProgress", {}) || {}
 
-const lastPlayedId = localStorage.getItem("lastPlayedId")
+const lastPlayedId = getUserStorage("lastPlayedId", null)
+
 
 if(progressMemory[song.id] > 5 && song.id == lastPlayedId){
 audio.currentTime = progressMemory[song.id]
@@ -1485,26 +1489,23 @@ bgBlur.style.backgroundImage = `url(${cover})`
 musicPlayer.classList.add("active")
 document.querySelector(".main-content").style.paddingBottom = "110px"
 
-localStorage.setItem("recentSong", JSON.stringify({
-...song,
-cover: getValidCover(song.cover)
 
-
+setUserStorage("recentSong", {
+   ...song,
+   cover: getValidCover(song.cover)
 })
-)
 
 
 
-localStorage.setItem("lastPlayedId", song.id)
+setUserStorage("lastPlayedId", song.id)
 
-let history =
-JSON.parse(localStorage.getItem("history")) || []
+let history = getUserStorage("history", []) || []
 
-if(!history.includes(index)){
+history = history.filter(id => id !== song.id)
 history.unshift(song.id)
-}
+history = history.slice(0, 50)
 
-localStorage.setItem("history",JSON.stringify(history))
+setUserStorage("history", history)
 
 
 
@@ -1732,15 +1733,12 @@ const currentSongObj = songs[currentSong]
 
 if(currentSongObj){
 
-let progressMemory =
-JSON.parse(localStorage.getItem("songProgress")) || {}
+let progressMemory = getUserStorage("songProgress", {}) || {}
 
 progressMemory[currentSongObj.id] = audio.currentTime
 
-localStorage.setItem(
-"songProgress",
-JSON.stringify(progressMemory)
-)
+setUserStorage("songProgress", progressMemory)
+
 
 }
 
@@ -1793,8 +1791,7 @@ audio.addEventListener("ended",()=>{
    const song = songs[currentSong]
 
    /*  CLEAN MEMORY */
-   let progressMemory =
-   JSON.parse(localStorage.getItem("songProgress")) || {}
+   let progressMemory = getUserStorage("songProgress", {}) || {}
 
    delete progressMemory[song.id]
 
@@ -1879,6 +1876,27 @@ performSearch(query)
 
 })
 
+searchInput.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    const query = searchInput.value.trim()
+    if(query.length >= 2){
+      navigateToSearchPage("songs", query)
+    }
+  }
+})
+
+searchInput.addEventListener("focus", ()=>{
+  renderRecentSearches()
+  renderTrending()
+
+  if(searchInput.value.trim().length >= 2){
+    searchResults.classList.add("active")
+  }else{
+    searchResults.classList.add("active")
+  }
+})
+
+
 const searchResults=document.getElementById("searchResults")
 
 
@@ -1889,116 +1907,114 @@ const searchContent=document.querySelector(".search-content")
 
 
 async function performSearch(query){
+  if(!query) return
+  if(!searchResults || !searchContent) return
 
-if(!query) return
+  searchResults.classList.add("active")
+  searchContent.innerHTML = `<div style="padding:10px;color:#aaa;">Searching...</div>`
 
-if(!searchResults) return
+  saveRecentSearch(query)
 
-searchResults.classList.add("active")
-searchContent.innerHTML = "Searching..."
+  try{
+    const [tracksRes, artistsRes, albumsRes] = await Promise.all([
+      fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=5&search=${encodeURIComponent(query)}`),
+      fetch(`https://api.jamendo.com/v3.0/artists/?client_id=${CLIENT_ID}&format=json&limit=3&search=${encodeURIComponent(query)}`),
+      fetch(`https://api.jamendo.com/v3.0/albums/?client_id=${CLIENT_ID}&format=json&limit=3&search=${encodeURIComponent(query)}`)
+    ])
 
-saveRecentSearch(query)
+    const tracksData = await tracksRes.json()
+    const artistsData = await artistsRes.json()
+    const albumsData = await albumsRes.json()
 
-/*  PARALLEL SEARCH  */
-const [tracksRes, artistsRes, albumsRes] = await Promise.all([
+    searchContent.innerHTML = ""
 
-fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=5&search=${encodeURIComponent(query)}`),
+    const hasTracks = tracksData?.results?.length > 0
+    const hasArtists = artistsData?.results?.length > 0
+    const hasAlbums = albumsData?.results?.length > 0
 
-fetch(`https://api.jamendo.com/v3.0/artists/?client_id=${CLIENT_ID}&format=json&limit=3&search=${encodeURIComponent(query)}`),
+    if(!hasTracks && !hasArtists && !hasAlbums){
+      searchContent.innerHTML = `
+        <div style="padding:10px;color:#aaa;">
+          No results found for "<strong>${query}</strong>"
+        </div>
+      `
+      return
+    }
 
-fetch(`https://api.jamendo.com/v3.0/albums/?client_id=${CLIENT_ID}&format=json&limit=3&search=${encodeURIComponent(query)}`)
+    /* SONGS */
+    if(hasTracks){
+      const title = document.createElement("h4")
+      title.innerText = "Songs"
+      searchContent.appendChild(title)
 
-])
+      tracksData.results.forEach(item=>{
+        const div = document.createElement("div")
+        div.className = "search-item"
 
-const tracksData = await tracksRes.json()
-const artistsData = await artistsRes.json()
-const albumsData = await albumsRes.json()
+        div.innerHTML = `
+          <img src="${getValidCover(item.album_image)}">
+          <div>
+            <div>${item.name}</div>
+            <div style="font-size:12px;color:#aaa">${item.artist_name}</div>
+          </div>
+        `
 
-searchContent.innerHTML = ""
+        div.onclick = ()=> navigateToSearchPage("songs", item.name)
+        searchContent.appendChild(div)
+      })
+    }
 
-/* 
- SONGS SECTION
- */
-if(tracksData.results.length){
+    /* ARTISTS */
+    if(hasArtists){
+      const title = document.createElement("h4")
+      title.innerText = "Artists"
+      searchContent.appendChild(title)
 
-const title = document.createElement("h4")
-title.innerText = "Songs"
-searchContent.appendChild(title)
+      artistsData.results.forEach(item=>{
+        const div = document.createElement("div")
+        div.className = "search-item"
 
-tracksData.results.forEach(item=>{
-const div = document.createElement("div")
-div.className = "search-item"
+        div.innerHTML = `
+          <img src="${item.image || DEFAULT_COVER}">
+          <div>${item.name}</div>
+        `
 
-div.innerHTML = `
-<img src="${item.album_image}">
-<div>
-<div>${item.name}</div>
-<div style="font-size:12px;color:#aaa">${item.artist_name}</div>
-</div>
-`
+        div.onclick = ()=> navigateToSearchPage("artist", item.name)
+        searchContent.appendChild(div)
+      })
+    }
 
-/* 👉 CLICK → OPEN SEARCH PAGE */
-div.onclick = ()=>{
-navigateToSearchPage("songs", item.name)
+    /* ALBUMS */
+    if(hasAlbums){
+      const title = document.createElement("h4")
+      title.innerText = "Albums"
+      searchContent.appendChild(title)
+
+      albumsData.results.forEach(item=>{
+        const div = document.createElement("div")
+        div.className = "search-item"
+
+        div.innerHTML = `
+          <img src="${item.image || DEFAULT_COVER}">
+          <div>${item.name}</div>
+        `
+
+        div.onclick = ()=> navigateToSearchPage("album", item.id)
+        searchContent.appendChild(div)
+      })
+    }
+
+  }catch(err){
+    console.error("Search error:", err)
+    searchContent.innerHTML = `
+      <div style="padding:10px;color:#aaa;">
+        Search failed. Please try again.
+      </div>
+    `
+  }
 }
 
-searchContent.appendChild(div)
-})
-}
 
-/* 
-👤 ARTISTS SECTION
- */
-if(artistsData.results.length){
-
-const title = document.createElement("h4")
-title.innerText = "Artists"
-searchContent.appendChild(title)
-
-artistsData.results.forEach(item=>{
-const div = document.createElement("div")
-div.className = "search-item"
-
-div.innerHTML = `
-<img src="${item.image || ""}">
-<div>${item.name}</div>
-`
-
-div.onclick = ()=>{
-navigateToSearchPage("artist", item.name)
-}
-
-searchContent.appendChild(div)
-})
-}
-
-/* 
-💿 ALBUMS SECTION
- */
-if(albumsData.results.length){
-
-const title = document.createElement("h4")
-title.innerText = "Albums"
-searchContent.appendChild(title)
-
-albumsData.results.forEach(item=>{
-const div = document.createElement("div")
-div.className = "search-item"
-
-div.innerHTML = `
-<img src="${item.image || ""}">
-<div>${item.name}</div>
-`
-
-div.onclick = ()=>{
-navigateToSearchPage("album", item.id)
-}
-
-searchContent.appendChild(div)
-})
-}
-
-}
 
 
 
@@ -2072,7 +2088,7 @@ showToast("Added to liked songs")
 
 /* save */
 
-localStorage.setItem("likedSongs", JSON.stringify(likedSongs))
+setUserStorage("likedSongs", likedSongs)
 
 /* UPDATE LIKED PAGE IF OPEN */
 
@@ -2120,7 +2136,7 @@ HERO RECENT SONG
 */
 function loadHeroSong(){
 
-const recent = JSON.parse(localStorage.getItem("recentSong"))
+const recent = getUserStorage("recentSong", null)
 
 const heroImage = document.getElementById("heroImage")
 const heroTitle = document.getElementById("heroTitle")
@@ -2188,41 +2204,44 @@ loadSong(index, true)
 LOAD ROUTE FROM URL
 */
 
-function loadRouteFromURL(){
+async function loadRouteFromURL(){
+  let path = window.location.hash.replace("#/", "").trim()
 
-let path = window.location.hash.replace("#/", "")
+  if(path === ""){
+    path = "home"
+  }
 
-if(path === "") path = "home"
-
-navigateWithoutPush(path)
-
+  await navigateWithoutPush(path)
 }
 
-/* 
-INITIAL ROUTE FIX 
-*/
+/*  INITIAL ROUTE FIX  */
 if(!window.location.hash){
-history.replaceState({}, "", "/#/home")
+  history.replaceState({}, "", "/#/home")
 }
 
+/*  APP BOOT */
+async function bootApp(){
+  try{
+    syncUserMusicState()
+    initTopNavbar()  
+    // preload songs once before first render
+    if(songs.length === 0){
+      await loadSongsFromAPI()
+    }
 
+    await loadRouteFromURL()
 
-/* 
-INITIALIZE PLAYER
- */
+    renderRecentSearches()
+    renderTrending()
+    updatePlaybackBadge("online", true)
+  }catch(err){
+    console.error("BOOT ERROR:", err)
+    showToast("Failed to load app")
+    await renderHome()
+  }
+}
 
-loadRouteFromURL()
-
-setTimeout(()=>{
-loadSongsFromAPI()
-},100)
-
-
-/*  INITIAL BADGE BOOT */
-
-setTimeout(()=>{
-   updatePlaybackBadge("online", true)
-},300)
+bootApp()
 
 
 
@@ -2264,7 +2283,21 @@ document.querySelectorAll(".song-menu.active")
 queuePanel.classList.toggle("active")
 })
 
+/*  NAVBAR INIT (ADD THIS) */
+function initTopNavbar(){
+  renderRecentSearches()
+  renderTrending()
 
+  if(profileBtn){
+    profileBtn.setAttribute("title", "Open Profile")
+  }
+
+  if(searchInput){
+    searchInput.setAttribute("autocomplete", "off")
+  }
+}
+
+/*  TOAST FEEDBACK  */
 function showToast(text){
 
 let toast = document.createElement("div")
@@ -2555,7 +2588,7 @@ if (heroPlay) {
 	heroPlay.onclick = null;
 
 	heroPlay.onclick = () => {
-const recentRaw = JSON.parse(localStorage.getItem("recentSong"))
+const recentRaw = getUserStorage("recentSong", null)
 const recent = recentRaw ? {
 ...recentRaw,
 cover: getValidCover(recentRaw.cover)
@@ -2574,24 +2607,16 @@ cover: getValidCover(recentRaw.cover)
 
 
 
-let recentSearches =
-JSON.parse(localStorage.getItem("recentSearches")) || []
+let recentSearches = []
 
 function saveRecentSearch(query){
+   if(recentSearches.includes(query)) return
 
-if(recentSearches.includes(query)) return
+   recentSearches.unshift(query)
+   recentSearches = recentSearches.slice(0, 5)
 
-recentSearches.unshift(query)
-
-recentSearches = recentSearches.slice(0,3)
-
-localStorage.setItem(
-"recentSearches",
-JSON.stringify(recentSearches)
-)
-
-renderRecentSearches()
-
+   setUserStorage("recentSearches", recentSearches)
+   renderRecentSearches()
 }
 
 function renderRecentSearches(){
@@ -2668,93 +2693,53 @@ list.appendChild(item)
 SEARCH RESULT PAGE (PREMIUM)
  */
 async function navigateToSearchPage(type, value){
+  currentSearchType = type
+  currentSearchValue = value
 
-history.pushState({}, "", "/#/search")
+  if(searchResults){
+    searchResults.classList.remove("active")
+  }
 
-pageContent.innerHTML = `
-<h2 style="margin-bottom:20px">Search Results</h2>
-<div class="song-grid" id="searchPageGrid"></div>
-`
-
-const grid = document.getElementById("searchPageGrid")
-
-showSkeletonGrid(grid)
-
-/* 
- SONG SEARCH
- */
-if(type === "songs"){
-const res = await fetch(
-`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&search=${encodeURIComponent(value)}`
-)
-const data = await res.json()
-
-renderSearchGrid(data.results, grid)
-}
-
-/*
-👤 ARTIST SEARCH
- */
-if(type === "artist"){
-const res = await fetch(
-`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&artist_name=${encodeURIComponent(value)}`
-)
-const data = await res.json()
-
-renderSearchGrid(data.results, grid)
-}
-
-/* 
-💿 ALBUM SEARCH
- */
-if(type === "album"){
-const res = await fetch(
-`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&album_id=${value}`
-)
-const data = await res.json()
-
-renderSearchGrid(data.results, grid)
-}
-
-/* close dropdown */
-if(searchResults){
-searchResults.classList.remove("active")
-}
-
+  await navigate("search")
 }
 
 
 
 function renderSearchGrid(list, grid){
+  grid.innerHTML = ""
 
-grid.innerHTML = ""
+  if(!list || list.length === 0){
+    grid.innerHTML = `
+      <p style="color:#aaa; font-size:14px;">
+        No songs found for this search
+      </p>
+    `
+    return
+  }
 
-const fragment = document.createDocumentFragment()
+  const fragment = document.createDocumentFragment()
 
-list.forEach(track=>{
+  list.forEach(track=>{
+    const song = {
+      id: track.id,
+      title: track.name,
+      artist: track.artist_name,
+      cover: getValidCover(track.album_image),
+      src: track.audio,
+      mood: detectCategory(Array.isArray(track.tags) ? track.tags : []),
+      tags: Array.isArray(track.tags) ? track.tags : []
+    }
 
-const song = {
-id:track.id,
-title:track.name,
-artist:track.artist_name,
-cover:track.album_image,
-src:track.audio
+    if(!songs.some(s => s.id === song.id)){
+      songs.push(song)
+    }
+
+    const index = songs.findIndex(s => s.id === song.id)
+    fragment.appendChild(createSongCard(song, index))
+  })
+
+  grid.appendChild(fragment)
 }
-
-/* prevent duplicate */
-if(!songs.some(s => s.id === song.id)){
-songs.push(song)
-}
-
-const index = songs.findIndex(s => s.id === song.id)
-
-fragment.appendChild(createSongCard(song, index))
-
-})
-
-grid.appendChild(fragment)
-}
-
 
 
 
@@ -2981,6 +2966,52 @@ function renderAbout(){
 }
 
 
+async function renderSearchPage(){
+  pageContent.innerHTML = `
+    <h2 style="margin-bottom:20px">Search Results</h2>
+    <p style="color:#aaa; margin-bottom:16px; font-size:14px;">
+      Showing results for: <strong>${currentSearchValue || "Unknown"}</strong>
+    </p>
+    <div class="song-grid" id="searchPageGrid"></div>
+  `
+
+  const grid = document.getElementById("searchPageGrid")
+  if(!grid) return
+
+  showSkeletonGrid(grid)
+
+  try{
+    let url = ""
+
+    if(currentSearchType === "songs"){
+      url = `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&search=${encodeURIComponent(currentSearchValue)}`
+    }
+
+    if(currentSearchType === "artist"){
+      url = `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&artist_name=${encodeURIComponent(currentSearchValue)}`
+    }
+
+    if(currentSearchType === "album"){
+      url = `https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=30&album_id=${currentSearchValue}`
+    }
+
+    if(!url){
+      grid.innerHTML = `<p style="color:#aaa">No search query found</p>`
+      return
+    }
+
+    const res = await fetch(url)
+    const data = await res.json()
+
+    renderSearchGrid(data.results || [], grid)
+  }catch(err){
+    console.error("Search page error:", err)
+    grid.innerHTML = `<p style="color:#aaa">Failed to load search results</p>`
+  }
+}
+
+
+
 
 
 function handleFiles(files){
@@ -3114,6 +3145,7 @@ if(duplicateExists){
 
 const songData = {
 id: "local_" + Date.now() + Math.random(),
+ownerId: getStorageOwnerId(),
 title: cleanTitle,
 artist: cleanArtist,
 cover: cover || generatePremiumCover(cleanTitle),
@@ -3150,7 +3182,9 @@ request.onsuccess = function(){
 
    grid.innerHTML = ""
 
-   request.result.forEach(song => {
+   request.result
+   .filter(song => (song.ownerId || GUEST_STORAGE_PREFIX) === getStorageOwnerId())
+   .forEach(song => {
       const localSong = {
          ...song,
          isLocal: true // 🔥 force safety
@@ -3311,5 +3345,938 @@ icon.className = audio.paused
 document.addEventListener("visibilitychange", ()=>{
    if(!document.hidden){
       generateSmartQueue()
+   }
+})
+
+
+
+
+/* ===============================
+   ACCOUNT SYSTEM - STAGE 2 FOUNDATION
+=============================== */
+const DEFAULT_AVATAR = "assets/default-avatar.png"
+
+/* NAV UI */
+const profileBtn = document.getElementById("profileBtn")
+const profileDropdown = document.getElementById("profileDropdown")
+const navProfileImage = document.getElementById("navProfileImage")
+const dropdownProfileImage = document.getElementById("dropdownProfileImage")
+const dropdownUserName = document.getElementById("dropdownUserName")
+const dropdownUserEmail = document.getElementById("dropdownUserEmail")
+
+const openAuthModalBtn = document.getElementById("openAuthModalBtn")
+const openAccountPageBtn = document.getElementById("openAccountPageBtn")
+
+/* AUTH MODAL */
+const authModal = document.getElementById("authModal")
+const authModalBackdrop = document.getElementById("authModalBackdrop")
+const closeAuthModal = document.getElementById("closeAuthModal")
+
+const authTabs = document.querySelectorAll(".auth-tab")
+const loginPanel = document.getElementById("loginPanel")
+const signupPanel = document.getElementById("signupPanel")
+
+/* AUTH INPUTS */
+const loginEmailInput = document.getElementById("loginEmailInput")
+const loginPasswordInput = document.getElementById("loginPasswordInput")
+const loginSubmitBtn = document.getElementById("loginSubmitBtn")
+
+const signupNameInput = document.getElementById("signupNameInput")
+const signupEmailInput = document.getElementById("signupEmailInput")
+const signupPasswordInput = document.getElementById("signupPasswordInput")
+const signupConfirmPasswordInput = document.getElementById("signupConfirmPasswordInput")
+const signupSubmitBtn = document.getElementById("signupSubmitBtn")
+
+/* STORAGE KEYS */
+const ACCOUNTS_STORAGE_KEY = "safinex_accounts"
+const SESSION_STORAGE_KEY = "safinex_current_session"
+
+const GUEST_STORAGE_PREFIX = "guest"
+
+/* ===============================
+   USER-SCOPED STORAGE HELPERS
+=============================== */
+function getStorageOwnerId(){
+   return getCurrentUser()?.id || GUEST_STORAGE_PREFIX
+}
+
+function buildUserStorageKey(key){
+   return `safinex_user_${getStorageOwnerId()}_${key}`
+}
+
+function getUserStorage(key, fallback = null){
+   try{
+      const raw = localStorage.getItem(buildUserStorageKey(key))
+      return raw ? JSON.parse(raw) : fallback
+   }catch{
+      return fallback
+   }
+}
+
+function setUserStorage(key, value){
+   localStorage.setItem(buildUserStorageKey(key), JSON.stringify(value))
+}
+
+function removeUserStorage(key){
+   localStorage.removeItem(buildUserStorageKey(key))
+}
+
+/* ===============================
+   USER MUSIC STATE REFS
+=============================== */
+function syncUserMusicState(){
+   likedSongs = getUserStorage("likedSongs", []) || []
+   userProfile = getUserStorage("userProfile", {
+      moods: {},
+      artists: {},
+      songs: {},
+      recent: [],
+      lastUpdated: Date.now()
+   }) || {
+      moods: {},
+      artists: {},
+      songs: {},
+      recent: [],
+      lastUpdated: Date.now()
+   }
+
+   recentSearches = getUserStorage("recentSearches", []) || []
+
+   renderRecentSearches?.()
+   updateLikedPage?.()
+   refreshLikedPage?.()
+}
+
+function saveUserProfile(){
+   setUserStorage("userProfile", userProfile)
+}
+
+/* ACCOUNT STATE */
+let accountsDB = JSON.parse(localStorage.getItem(ACCOUNTS_STORAGE_KEY)) || []
+let currentSession = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)) || null
+
+/* ===============================
+   HELPERS
+=============================== */
+function saveAccountsDB(){
+   localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accountsDB))
+}
+
+function saveCurrentSession(){
+   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession))
+}
+
+function getCurrentUser(){
+   if(!currentSession?.userId) return null
+   return accountsDB.find(user => user.id === currentSession.userId) || null
+}
+
+function isUserLoggedIn(){
+   return !!getCurrentUser()
+}
+
+function generateUserId(){
+   return "user_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9)
+}
+
+function normalizeEmail(email){
+   return (email || "").trim().toLowerCase()
+}
+
+/* ===============================
+   AUTH VALIDATION + ACCOUNT HELPERS
+=============================== */
+function findUserByEmail(email){
+   const normalized = normalizeEmail(email)
+   return accountsDB.find(user => normalizeEmail(user.email) === normalized) || null
+}
+
+function validateEmail(email){
+   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function validatePassword(password){
+   return typeof password === "string" && password.trim().length >= 6
+}
+
+function hashPassword(password){
+   // simple local-app safe placeholder hash structure
+   // scalable later for backend auth migration
+   return btoa(unescape(encodeURIComponent(password)))
+}
+
+function verifyPassword(rawPassword, hashedPassword){
+   return hashPassword(rawPassword) === hashedPassword
+}
+
+function createNewAccount({ name, email, password }){
+   const newUser = {
+      id: generateUserId(),
+      name: name.trim(),
+      email: normalizeEmail(email),
+      passwordHash: hashPassword(password),
+      avatar: DEFAULT_AVATAR,
+      provider: "local",
+      plan: "Free",
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+   }
+
+   accountsDB.push(newUser)
+   saveAccountsDB()
+   return newUser
+}
+
+function startUserSession(user){
+   currentSession = {
+      userId: user.id,
+      loginAt: Date.now(),
+      provider: user.provider || "local"
+   }
+
+   saveCurrentSession()
+   syncUserMusicState()
+   updateProfileUI()
+}
+
+function clearUserSession(){
+   currentSession = null
+   saveCurrentSession()
+   syncUserMusicState()
+   updateProfileUI()
+}
+
+function resetAuthInputs(){
+   if(loginEmailInput) loginEmailInput.value = ""
+   if(loginPasswordInput) loginPasswordInput.value = ""
+
+   if(signupNameInput) signupNameInput.value = ""
+   if(signupEmailInput) signupEmailInput.value = ""
+   if(signupPasswordInput) signupPasswordInput.value = ""
+   if(signupConfirmPasswordInput) signupConfirmPasswordInput.value = ""
+}
+
+function safelyGoHomeAfterAuth(){
+   closeAuthModalUI()
+   navigate("home")
+}
+
+function getSafeUserView(){
+   const user = getCurrentUser()
+
+   if(!user){
+      return {
+         id: null,
+         name: "Guest User",
+         email: "Not signed in",
+         avatar: DEFAULT_AVATAR,
+         provider: "local",
+         plan: "Guest"
+      }
+   }
+
+   return {
+      id: user.id,
+      name: user.name || "Safinex User",
+      email: user.email || "No email",
+      avatar: user.avatar || DEFAULT_AVATAR,
+      provider: user.provider || "local",
+      plan: user.plan || "Free"
+   }
+}
+
+/* ===============================
+   PROFILE UI INIT
+=============================== */
+function initProfileSystem(){
+   updateProfileUI()
+
+   if(profileBtn){
+      profileBtn.addEventListener("click", (e)=>{
+         e.stopPropagation()
+         profileDropdown.classList.toggle("active")
+      })
+   }
+
+   if(openAuthModalBtn){
+      openAuthModalBtn.addEventListener("click", async ()=>{
+         profileDropdown.classList.remove("active")
+
+         if(isUserLoggedIn()){
+            await navigate("account")
+         }else{
+            openAuthModalUI("login")
+         }
+      })
+   }
+
+   if(openAccountPageBtn){
+      openAccountPageBtn.addEventListener("click", async ()=>{
+         profileDropdown.classList.remove("active")
+         await navigate("account")
+      })
+   }
+
+   if(authModalBackdrop){
+      authModalBackdrop.addEventListener("click", closeAuthModalUI)
+   }
+
+   if(closeAuthModal){
+      closeAuthModal.addEventListener("click", closeAuthModalUI)
+   }
+
+   authTabs.forEach(tab=>{
+      tab.addEventListener("click", ()=>{
+         switchAuthTab(tab.dataset.authTab)
+      })
+   })
+
+   if(loginSubmitBtn){
+      loginSubmitBtn.addEventListener("click", handleLogin)
+   }
+
+   if(signupSubmitBtn){
+      signupSubmitBtn.addEventListener("click", handleCreateAccount)
+   }
+
+   if(loginPasswordInput){
+      loginPasswordInput.addEventListener("keydown", (e)=>{
+         if(e.key === "Enter"){
+            handleLogin()
+         }
+      })
+   }
+
+   if(signupConfirmPasswordInput){
+      signupConfirmPasswordInput.addEventListener("keydown", (e)=>{
+         if(e.key === "Enter"){
+            handleCreateAccount()
+         }
+      })
+   }
+
+   bootPersistentSession()
+}
+
+function switchAuthTab(type){
+   authTabs.forEach(t=>t.classList.remove("active"))
+
+   const activeTab = document.querySelector(`[data-auth-tab="${type}"]`)
+   if(activeTab) activeTab.classList.add("active")
+
+   if(type === "login"){
+      loginPanel.classList.add("active")
+      signupPanel.classList.remove("active")
+   }else{
+      signupPanel.classList.add("active")
+      loginPanel.classList.remove("active")
+   }
+}
+
+function openAuthModalUI(type = "login"){
+   switchAuthTab(type)
+   authModal.classList.add("active")
+}
+
+function closeAuthModalUI(){
+   authModal.classList.remove("active")
+}
+
+/* ===============================
+   REAL AUTH ACTIONS
+=============================== */
+function handleCreateAccount(){
+   const name = signupNameInput?.value?.trim() || ""
+   const email = signupEmailInput?.value?.trim() || ""
+   const password = signupPasswordInput?.value || ""
+   const confirmPassword = signupConfirmPasswordInput?.value || ""
+
+   if(!name){
+      showToast("Enter your full name")
+      return
+   }
+
+   if(name.length < 2){
+      showToast("Name is too short")
+      return
+   }
+
+   if(!validateEmail(email)){
+      showToast("Enter a valid email")
+      return
+   }
+
+   if(findUserByEmail(email)){
+      showToast("Account already exists")
+      switchAuthTab("login")
+      if(loginEmailInput) loginEmailInput.value = email
+      return
+   }
+
+   if(!validatePassword(password)){
+      showToast("Password must be at least 6 characters")
+      return
+   }
+
+   if(password !== confirmPassword){
+      showToast("Passwords do not match")
+      return
+   }
+
+   const newUser = createNewAccount({ name, email, password })
+
+   startUserSession(newUser)
+   resetAuthInputs()
+   updateProfileUI()
+
+   showToast("Account created successfully")
+   safelyGoHomeAfterAuth()
+}
+
+function handleLogin(){
+   const email = loginEmailInput?.value?.trim() || ""
+   const password = loginPasswordInput?.value || ""
+
+   if(!validateEmail(email)){
+      showToast("Enter a valid email")
+      return
+   }
+
+   if(!password){
+      showToast("Enter your password")
+      return
+   }
+
+   const user = findUserByEmail(email)
+
+   if(!user){
+      showToast("No account found")
+      switchAuthTab("signup")
+      if(signupEmailInput) signupEmailInput.value = email
+      return
+   }
+
+   if(!verifyPassword(password, user.passwordHash)){
+      showToast("Incorrect password")
+      return
+   }
+
+   startUserSession(user)
+   resetAuthInputs()
+   updateProfileUI()
+
+   showToast("Logged in successfully")
+   safelyGoHomeAfterAuth()
+}
+
+async function handleLogout(){
+  clearUserSession()
+  closeAuthModalUI()
+  profileDropdown?.classList.remove("active")
+
+  showToast("Logged out successfully")
+
+  if(currentPageName === "account"){
+    await navigate("home")
+  }else{
+    updateProfileUI()
+  }
+}
+
+
+/* ===============================
+   NAVBAR PROFILE UI
+=============================== */
+function updateProfileUI(){
+   const user = getSafeUserView()
+   const avatar = user.avatar || DEFAULT_AVATAR
+   const hasCustomAvatar =
+      avatar &&
+      avatar !== DEFAULT_AVATAR &&
+      avatar.trim() !== ""
+
+   if(navProfileImage){
+      navProfileImage.src = avatar
+   }
+
+   if(dropdownProfileImage){
+      dropdownProfileImage.src = avatar
+   }
+
+   if(dropdownUserName){
+      dropdownUserName.textContent = user.name
+   }
+
+   if(dropdownUserEmail){
+      dropdownUserEmail.textContent = user.email
+   }
+
+   if(profileBtn){
+      if(hasCustomAvatar){
+         profileBtn.classList.remove("no-image")
+      }else{
+         profileBtn.classList.add("no-image")
+      }
+   }
+
+   if(openAuthModalBtn){
+      openAuthModalBtn.innerHTML = isUserLoggedIn()
+         ? `<span class="material-icons">manage_accounts</span> Account Dashboard`
+         : `<span class="material-icons">login</span> Login / Sign Up`
+   }
+}
+
+/* ===============================
+   PERSISTENT SESSION BOOT
+=============================== */
+function bootPersistentSession(){
+   if(!currentSession?.userId){
+      syncUserMusicState()
+      return
+   }
+
+   const user = getCurrentUser()
+
+   if(!user){
+      clearUserSession()
+      return
+   }
+
+   syncUserMusicState()
+   updateProfileUI()
+}
+
+/* ===============================
+   ACCOUNT PAGE RENDER
+=============================== */
+function renderAccountPage(){
+   currentPageName = "account"
+
+   const user = getSafeUserView()
+   const loggedIn = isUserLoggedIn()
+
+   pageContent.innerHTML = `
+      <div class="account-page">
+         <div class="account-hero">
+            <div class="account-hero-left">
+               <div class="account-avatar-wrap">
+                  <img id="accountProfileImage" src="${user.avatar}" alt="Profile">
+                  <label class="account-avatar-upload" for="accountImageInput">Change</label>
+                  <input type="file" id="accountImageInput" accept="image/*" style="display:none">
+               </div>
+
+               <div class="account-hero-text">
+                  <h2>${user.name}</h2>
+                  <p>${user.email}</p>
+               </div>
+            </div>
+
+            <button class="account-back-btn" id="backToHomeBtn">← Back to Home</button>
+         </div>
+
+         <div class="account-grid">
+            <div class="account-card">
+               <h3>Profile Overview</h3>
+
+               <div class="account-info-row">
+                  <span>Name</span>
+                  <span id="accountNameText">${user.name}</span>
+               </div>
+
+               <div class="account-info-row">
+                  <span>Email</span>
+                  <span id="accountEmailText">${user.email}</span>
+               </div>
+
+               <div class="account-info-row">
+                  <span>Account Type</span>
+                  <span>${loggedIn ? "Local Account" : "Guest"}</span>
+               </div>
+
+               <div class="account-info-row">
+                  <span>Provider</span>
+                  <span>${user.provider === "google" ? "Google" : "Local"}</span>
+               </div>
+            </div>
+
+            <div class="account-card">
+               <h3>Quick Actions</h3>
+
+               ${
+                  loggedIn
+                  ? `
+                     <button id="logoutBtn" class="profile-action-btn">
+                        <span class="material-icons">logout</span>
+                        Logout
+                     </button>
+                  `
+                  : `
+                     <button id="openAuthFromAccountBtn" class="profile-action-btn">
+                        <span class="material-icons">login</span>
+                        Open Login / Sign Up
+                     </button>
+                  `
+               }
+
+               <button id="triggerAvatarChangeBtn" class="profile-action-btn">
+                  <span class="material-icons">photo_camera</span>
+                  Update Profile Photo
+               </button>
+
+               <button id="openEditProfileBtn" class="profile-action-btn">
+                  <span class="material-icons">edit</span>
+                  Edit Profile
+               </button>
+
+               <button id="openChangePasswordBtn" class="profile-action-btn">
+                  <span class="material-icons">lock</span>
+                  Change Password
+               </button>
+
+               <button class="profile-action-btn" disabled>
+                  <span class="material-icons">link</span>
+                  Google Login (Coming Soon)
+               </button>
+            </div>
+
+            ${
+               !loggedIn
+               ? `
+                  <div class="account-card account-form-card">
+                     <h3>Guest Mode</h3>
+                     <p style="color:#aaa; line-height:1.7; font-size:14px;">
+                        Create an account to save your identity, profile image, and personalized player experience across sessions.
+                     </p>
+                  </div>
+               `
+               : ``
+            }
+         </div>
+
+         ${
+            loggedIn
+            ? `
+            <!-- EDIT PROFILE PANEL -->
+            <div id="editProfilePanel" class="account-floating-panel hidden">
+               <div class="panel-card">
+                  <div class="panel-header">
+                     <h3>Edit Profile</h3>
+                     <button class="panel-close-btn" id="closeEditProfileBtn">✕</button>
+                  </div>
+
+                  <input id="editNameInput" type="text" placeholder="Full Name" value="${user.name}">
+                  <input id="editEmailInput" type="email" placeholder="Email Address" value="${user.email}">
+
+                  <button id="saveProfileBtn" class="auth-submit-btn">Save Profile</button>
+               </div>
+            </div>
+
+            <!-- CHANGE PASSWORD PANEL -->
+            <div id="changePasswordPanel" class="account-floating-panel hidden">
+               <div class="panel-card">
+                  <div class="panel-header">
+                     <h3>Change Password</h3>
+                     <button class="panel-close-btn" id="closePasswordBtn">✕</button>
+                  </div>
+
+                  <input id="currentPasswordInput" type="password" placeholder="Current Password">
+                  <input id="newPasswordInput" type="password" placeholder="New Password">
+                  <input id="confirmNewPasswordInput" type="password" placeholder="Confirm New Password">
+
+                  <button id="changePasswordBtn" class="auth-submit-btn">Update Password</button>
+               </div>
+            </div>
+            `
+            : ``
+         }
+      </div>
+   `
+
+
+   
+
+   updateSidebarActive("")
+
+   const backToHomeBtn = document.getElementById("backToHomeBtn")
+   if(backToHomeBtn){
+      backToHomeBtn.onclick = ()=> navigate("home")
+   }
+
+   const openAuthFromAccountBtn = document.getElementById("openAuthFromAccountBtn")
+   if(openAuthFromAccountBtn){
+      openAuthFromAccountBtn.onclick = ()=> openAuthModalUI("login")
+   }
+
+   const triggerAvatarChangeBtn = document.getElementById("triggerAvatarChangeBtn")
+   const accountImageInput = document.getElementById("accountImageInput")
+
+   if(triggerAvatarChangeBtn && accountImageInput){
+      triggerAvatarChangeBtn.onclick = ()=> accountImageInput.click()
+   }
+
+   if(accountImageInput){
+      accountImageInput.addEventListener("change", handleAccountProfileImageUpload)
+   }
+
+   const logoutBtn = document.getElementById("logoutBtn")
+   if(logoutBtn){
+      logoutBtn.onclick = handleLogout
+   }
+
+      const editPanel = document.getElementById("editProfilePanel")
+   const passwordPanel = document.getElementById("changePasswordPanel")
+
+   const openEditBtn = document.getElementById("openEditProfileBtn")
+   const openPasswordBtn = document.getElementById("openChangePasswordBtn")
+
+   const closeEditBtn = document.getElementById("closeEditProfileBtn")
+   const closePasswordBtn = document.getElementById("closePasswordBtn")
+
+   if(openEditBtn && editPanel){
+      openEditBtn.onclick = ()=>{
+         editPanel.classList.remove("hidden")
+      }
+   }
+
+   if(openPasswordBtn && passwordPanel){
+      openPasswordBtn.onclick = ()=>{
+         passwordPanel.classList.remove("hidden")
+      }
+   }
+
+   if(closeEditBtn && editPanel){
+      closeEditBtn.onclick = ()=>{
+         editPanel.classList.add("hidden")
+      }
+   }
+
+   if(closePasswordBtn && passwordPanel){
+      closePasswordBtn.onclick = ()=>{
+         passwordPanel.classList.add("hidden")
+      }
+   }
+
+   const saveProfileBtn = document.getElementById("saveProfileBtn")
+   if(saveProfileBtn){
+      saveProfileBtn.onclick = handleSaveProfileFromAccountPage
+   }
+
+   const changePasswordBtn = document.getElementById("changePasswordBtn")
+   if(changePasswordBtn){
+      changePasswordBtn.onclick = handlePasswordChangeFromAccountPage
+   }
+
+   const confirmNewPasswordInput = document.getElementById("confirmNewPasswordInput")
+   if(confirmNewPasswordInput){
+      confirmNewPasswordInput.addEventListener("keydown", (e)=>{
+         if(e.key === "Enter"){
+            handlePasswordChangeFromAccountPage()
+         }
+      })
+   }
+
+   const editEmailInput = document.getElementById("editEmailInput")
+   if(editEmailInput){
+      editEmailInput.addEventListener("keydown", (e)=>{
+         if(e.key === "Enter"){
+            handleSaveProfileFromAccountPage()
+         }
+      })
+   }
+}
+
+
+
+/* ===============================
+   ACCOUNT PROFILE UPDATE HELPERS
+=============================== */
+function updateUserInDB(updatedUser){
+   const userIndex = accountsDB.findIndex(acc => acc.id === updatedUser.id)
+   if(userIndex === -1) return false
+
+   updatedUser.updatedAt = Date.now()
+   accountsDB[userIndex] = updatedUser
+   saveAccountsDB()
+   return true
+}
+
+function updateCurrentUserProfile({ name, email }){
+   const user = getCurrentUser()
+   if(!user) return { ok: false, message: "No logged in user" }
+
+   const cleanName = (name || "").trim()
+   const cleanEmail = normalizeEmail(email || "")
+
+   if(!cleanName){
+      return { ok: false, message: "Name is required" }
+   }
+
+   if(cleanName.length < 2){
+      return { ok: false, message: "Name is too short" }
+   }
+
+   if(!validateEmail(cleanEmail)){
+      return { ok: false, message: "Invalid email address" }
+   }
+
+   const emailOwner = findUserByEmail(cleanEmail)
+   if(emailOwner && emailOwner.id !== user.id){
+      return { ok: false, message: "Email already in use" }
+   }
+
+   user.name = cleanName
+   user.email = cleanEmail
+
+   const saved = updateUserInDB(user)
+   if(!saved){
+      return { ok: false, message: "Failed to save profile" }
+   }
+
+   updateProfileUI()
+   return { ok: true, message: "Profile updated successfully" }
+}
+
+function updateCurrentUserPassword({ currentPassword, newPassword, confirmPassword }){
+   const user = getCurrentUser()
+   if(!user) return { ok: false, message: "No logged in user" }
+
+   if(!currentPassword){
+      return { ok: false, message: "Enter current password" }
+   }
+
+   if(!verifyPassword(currentPassword, user.passwordHash)){
+      return { ok: false, message: "Current password is incorrect" }
+   }
+
+   if(!validatePassword(newPassword)){
+      return { ok: false, message: "New password must be at least 6 characters" }
+   }
+
+   if(newPassword !== confirmPassword){
+      return { ok: false, message: "New passwords do not match" }
+   }
+
+   if(currentPassword === newPassword){
+      return { ok: false, message: "New password must be different" }
+   }
+
+   user.passwordHash = hashPassword(newPassword)
+
+   const saved = updateUserInDB(user)
+   if(!saved){
+      return { ok: false, message: "Failed to update password" }
+   }
+
+   return { ok: true, message: "Password updated successfully" }
+}
+
+
+/* ===============================
+   ACCOUNT PAGE ACTION HANDLERS
+=============================== */
+function handleSaveProfileFromAccountPage(){
+   const editNameInput = document.getElementById("editNameInput")
+   const editEmailInput = document.getElementById("editEmailInput")
+
+   if(!editNameInput || !editEmailInput){
+      showToast("Profile form not found")
+      return
+   }
+
+   const result = updateCurrentUserProfile({
+      name: editNameInput.value,
+      email: editEmailInput.value
+   })
+
+   showToast(result.message)
+
+   if(result.ok){
+      document.getElementById("editProfilePanel")?.classList.add("hidden")
+      updateProfileUI()
+      renderAccountPage()
+   }
+}
+
+function handlePasswordChangeFromAccountPage(){
+   const currentPasswordInput = document.getElementById("currentPasswordInput")
+   const newPasswordInput = document.getElementById("newPasswordInput")
+   const confirmNewPasswordInput = document.getElementById("confirmNewPasswordInput")
+
+   if(!currentPasswordInput || !newPasswordInput || !confirmNewPasswordInput){
+      showToast("Password form not found")
+      return
+   }
+
+   const result = updateCurrentUserPassword({
+      currentPassword: currentPasswordInput.value,
+      newPassword: newPasswordInput.value,
+      confirmPassword: confirmNewPasswordInput.value
+   })
+
+   showToast(result.message)
+
+   if(result.ok){
+      currentPasswordInput.value = ""
+      newPasswordInput.value = ""
+      confirmNewPasswordInput.value = ""
+
+      document.getElementById("changePasswordPanel")?.classList.add("hidden")
+      renderAccountPage()
+   }
+}
+
+
+/* ===============================
+   PROFILE IMAGE UPDATE
+=============================== */
+function handleAccountProfileImageUpload(e){
+   const file = e.target.files?.[0]
+   if(!file) return
+
+   if(!file.type.startsWith("image/")){
+      showToast("Only image files allowed")
+      return
+   }
+
+   const user = getCurrentUser()
+
+   if(!user){
+      showToast("Create or login to save profile photo")
+      return
+   }
+
+   const reader = new FileReader()
+   reader.onload = function(){
+      user.avatar = reader.result
+
+      const userIndex = accountsDB.findIndex(acc => acc.id === user.id)
+      if(userIndex !== -1){
+         accountsDB[userIndex] = user
+         saveAccountsDB()
+      }
+
+      updateProfileUI()
+
+      const accountProfileImage = document.getElementById("accountProfileImage")
+      if(accountProfileImage){
+         accountProfileImage.src = reader.result
+      }
+
+      showToast("Profile image updated")
+   }
+   reader.readAsDataURL(file)
+}
+
+/* ===============================
+   AUTO INIT
+=============================== */
+initProfileSystem()
+
+/* ===============================
+   GLOBAL CLOSE HANDLERS EXTENSION
+=============================== */
+document.addEventListener("click", (e)=>{
+   if(profileDropdown && !e.target.closest(".profile-wrapper")){
+      profileDropdown.classList.remove("active")
    }
 })

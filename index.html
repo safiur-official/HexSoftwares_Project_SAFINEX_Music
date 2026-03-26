@@ -51,26 +51,37 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
    <span id="badgeText">Playing Online</span>
 </div>
 
-<!--  SEARCH DROPDOWN -->
-<div class="search-results" id="searchResults">
 
 
+<div class="nav-icons">
+   <div class="profile-wrapper">
+      <button id="profileBtn" class="profile-btn">
+         <img id="navProfileImage" src="assets/default-avatar.png" alt="Profile">
+         <span class="material-icons profile-fallback">person</span>
+      </button>
 
-<div id="recentSearchList"></div>
-<div id="trendingSearchList"></div>
+      <div class="profile-dropdown" id="profileDropdown">
+         <div class="profile-dropdown-header">
+            <img id="dropdownProfileImage" src="assets/default-avatar.png" alt="Profile">
+            <div>
+               <h4 id="dropdownUserName">Guest User</h4>
+               <p id="dropdownUserEmail">Not signed in</p>
+            </div>
+         </div>
 
-<div class="search-content"></div>
+         <div class="profile-dropdown-body">
+            <button id="openAccountPageBtn" class="profile-action-btn">
+               <span class="material-icons">account_circle</span>
+               My Account
+            </button>
 
-</div>
-
-</div>
-
-<div class="nav-icons"> 
-
-
-
-<button>Profile</button>
-
+            <button id="openAuthModalBtn" class="profile-action-btn">
+               <span class="material-icons">login</span>
+               Login / Sign Up
+            </button>
+         </div>
+      </div>
+   </div>
 </div>
 
 </header>
@@ -325,6 +336,54 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 </div>
 </footer>
+
+<!-- ================= AUTH MODAL ================= -->
+<div class="auth-modal" id="authModal">
+   <div class="auth-modal-backdrop" id="authModalBackdrop"></div>
+
+   <div class="auth-modal-content">
+      <button class="auth-close-btn" id="closeAuthModal">✕</button>
+
+      <div class="auth-tabs">
+         <button class="auth-tab active" data-auth-tab="login">Login</button>
+         <button class="auth-tab" data-auth-tab="signup">Create Account</button>
+      </div>
+
+      <div class="auth-panel active" id="loginPanel">
+         <h2>Welcome Back</h2>
+         <p>Login to continue your personalized music experience.</p>
+
+         <div class="auth-form">
+            <input id="loginEmailInput" type="email" placeholder="Email Address">
+            <input id="loginPasswordInput" type="password" placeholder="Password">
+            <button id="loginSubmitBtn" class="auth-submit-btn">Login</button>
+
+            <button id="loginGoogleBtn" class="google-auth-btn" type="button">
+               <i class="fa-brands fa-google"></i>
+               Continue with Google
+            </button>
+         </div>
+      </div>
+
+      <div class="auth-panel" id="signupPanel">
+         <h2>Create Account</h2>
+         <p>Build your own personalized Safinex Music profile.</p>
+
+         <div class="auth-form">
+            <input id="signupNameInput" type="text" placeholder="Full Name">
+            <input id="signupEmailInput" type="email" placeholder="Email Address">
+            <input id="signupPasswordInput" type="password" placeholder="Password">
+            <input id="signupConfirmPasswordInput" type="password" placeholder="Confirm Password">
+            <button id="signupSubmitBtn" class="auth-submit-btn">Create Account</button>
+
+            <button id="signupGoogleBtn" class="google-auth-btn" type="button">
+               <i class="fa-brands fa-google"></i>
+               Continue with Google
+            </button>
+         </div>
+      </div>
+   </div>
+</div>
 
 <script src="script.js"></script>
 
