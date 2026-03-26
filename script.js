@@ -44,12 +44,16 @@ let favoritePage = 0
 let chipCache = {}
 let exploreLoading = false
 let exploreScrollInitialized = false
-let lastPlaybackMode = null   // "local" | "online"
+let exploreScrollHandler = null
+let lastPlaybackMode = null
 let playbackMode = "online" 
 let isLocalSession = false
 
 let currentSearchType = "songs"
 let currentSearchValue = ""
+
+let searchDebounceTimer = null
+let latestSearchToken = 0
 
 
 function getLocalSongs(){
@@ -243,25 +247,22 @@ ROUTE RENDER FUNCTIONS
 
 
 async function renderHome(){
-   isLocalSession = false
+  isLocalSession = false
 
-pageContent.innerHTML = homeHTML
+  pageContent.innerHTML = homeHTML
 
-/* RE-BIND DOM AFTER RENDER */
-listenRow = document.getElementById("listenRow")
-trendingRow = document.getElementById("trendingRow")
-favoriteRow = document.getElementById("favoriteRow")
+  /* RE-BIND DOM AFTER RENDER */
+  listenRow = document.getElementById("listenRow")
+  trendingRow = document.getElementById("trendingRow")
+  favoriteRow = document.getElementById("favoriteRow")
 
-loadHeroSong()
-initHomeInteractions()
+  loadHeroSong()
+  initHomeInteractions()
 
-if(songs.length === 0){
-await loadSongsFromAPI()
-}
+  await ensureSongsLoaded(20)
+  await loadHomeSections()
 
-await loadHomeSections()
-
-preloadChips()
+  preloadChips()
 }
 
 
@@ -282,101 +283,85 @@ let loading = false
 /* 
  INITIAL LOAD WITH SKELETON
  */
+/* INITIAL LOAD */
 if(songs.length === 0){
-
-   for(let i=0;i<12;i++){
-      const sk = document.createElement("div")
-      sk.className = "song-card skeleton"
-      sk.innerHTML = `
+  for(let i=0;i<12;i++){
+    const sk = document.createElement("div")
+    sk.className = "song-card skeleton"
+    sk.innerHTML = `
       <div class="skeleton-img"></div>
       <div class="skeleton-title"></div>
       <div class="skeleton-artist"></div>
-      `
-      grid.appendChild(sk)
-   }
+    `
+    grid.appendChild(sk)
+  }
 
-   const newSongs = await loadSongsFromAPI()
-
-   grid.innerHTML = ""
-   const fragment = document.createDocumentFragment()
-
-   newSongs.forEach(song=>{
-      const index = songs.findIndex(s => s.id === song.id)
-      fragment.appendChild(createSongCard(song,index))
-   })
-
-   grid.appendChild(fragment)
-
-}else{
-
-   const fragment = document.createDocumentFragment()
-   songs.forEach((song,index)=>{
-      fragment.appendChild(createSongCard(song,index))
-   })
-   grid.appendChild(fragment)
+  await ensureSongsLoaded(20)
+  grid.innerHTML = ""
 }
+
+const fragment = document.createDocumentFragment()
+songs.forEach((song,index)=>{
+  fragment.appendChild(createSongCard(song,index))
+})
+grid.appendChild(fragment)
 
 /* 
  INFINITE SCROLL 
  */
-if(!exploreScrollInitialized){
-
-   let timeout = null
-
-   const handler = () => {
-
-      if(timeout) return
-
-      timeout = setTimeout(async () => {
-
-         const scrollPosition =
-            scrollContainer.scrollTop + scrollContainer.clientHeight
-
-         const threshold =
-            scrollContainer.scrollHeight - 300
-
-         if(scrollPosition >= threshold && !loading){
-
-            loading = true
-
-            /*  SHOW SKELETON */
-            for(let i=0;i<6;i++){
-               const sk = document.createElement("div")
-               sk.className = "song-card skeleton"
-               sk.innerHTML = `
-               <div class="skeleton-img"></div>
-               <div class="skeleton-title"></div>
-               <div class="skeleton-artist"></div>
-               `
-               grid.appendChild(sk)
-            }
-
-            const newSongs = await loadSongsFromAPI()
-
-            /*  REMOVE SKELETON */
-            const skeletons = grid.querySelectorAll(".song-card.skeleton")
-            skeletons.forEach(el=>el.remove())
-
-            const fragment = document.createDocumentFragment()
-
-            newSongs.forEach(song=>{
-               const index = songs.findIndex(s => s.id === song.id)
-               fragment.appendChild(createSongCard(song,index))
-            })
-
-            grid.appendChild(fragment)
-
-            loading = false
-         }
-
-         timeout = null
-
-      }, 150)
-   }
-
-   scrollContainer.addEventListener("scroll", handler)
-   exploreScrollInitialized = true
+/* INFINITE SCROLL - SAFE SINGLE HANDLER */
+if(exploreScrollHandler){
+  scrollContainer.removeEventListener("scroll", exploreScrollHandler)
 }
+
+let timeout = null
+
+exploreScrollHandler = async () => {
+  if(timeout || loading) return
+
+  timeout = setTimeout(async () => {
+    const scrollPosition = scrollContainer.scrollTop + scrollContainer.clientHeight
+    const threshold = scrollContainer.scrollHeight - 300
+
+    if(scrollPosition >= threshold){
+      loading = true
+
+      for(let i=0;i<6;i++){
+        const sk = document.createElement("div")
+        sk.className = "song-card skeleton"
+        sk.innerHTML = `
+          <div class="skeleton-img"></div>
+          <div class="skeleton-title"></div>
+          <div class="skeleton-artist"></div>
+        `
+        grid.appendChild(sk)
+      }
+
+      const newSongs = await loadSongsFromAPI()
+
+      const skeletons = grid.querySelectorAll(".song-card.skeleton")
+      skeletons.forEach(el=>el.remove())
+
+      const fragment = document.createDocumentFragment()
+
+      newSongs.forEach(song=>{
+        const index = songs.findIndex(s => s.id === song.id)
+        if(index !== -1){
+          fragment.appendChild(createSongCard(song,index))
+        }
+      })
+
+      grid.appendChild(fragment)
+      loading = false
+    }
+
+    timeout = null
+  }, 180)
+}
+
+scrollContainer.addEventListener("scroll", exploreScrollHandler)
+exploreScrollInitialized = true
+
 }
 
 
@@ -408,17 +393,26 @@ return
 
 /* render saved songs */
 
+const fragment = document.createDocumentFragment()
+
 likedSongs.forEach(id => {
+  const index = songs.findIndex(song => song.id === id)
 
-const index = songs.findIndex(song => song.id === id)
+  if(index !== -1){
+    fragment.appendChild(createSongCard(songs[index], index))
+  }
+})
 
-if(index !== -1){
-
-grid.appendChild(createSongCard(songs[index], index))
-
+if(fragment.childNodes.length === 0){
+  grid.innerHTML = `
+    <p style="color:#aaa;font-size:14px">
+      No songs in your library yet
+    </p>
+  `
+  return
 }
 
-})
+grid.appendChild(fragment)
 
 }
 
@@ -722,6 +716,13 @@ function generateSmartQueue(){
    renderQueue()
 }
 
+/*  SAFE GLOBAL SONG LOADER  */
+async function ensureSongsLoaded(min = 1){
+  if(songs.length >= min) return songs
+
+  const loaded = await loadSongsFromAPI()
+  return loaded
+}
 
 /* 
 LOAD SONGS FROM API
@@ -837,8 +838,8 @@ if(history.length === 0){
 listenData = songs.slice(0, 12)
 }else{
 listenData = history
-.map(index => songs[index])
-.filter(Boolean)
+  .map(id => songs.find(song => song.id === id))
+  .filter(Boolean)
 }
 
 renderListenRow()
@@ -865,15 +866,28 @@ mood: detectCategory(Array.isArray(track.tags) ? track.tags : []),
 tags: Array.isArray(track.tags) ? track.tags : []
 }))
 
-trendingData = [...trendingData, ...newSongs]
+const mergedTrending = [...trendingData, ...newSongs]
+const seenTrending = new Set()
+
+trendingData = mergedTrending.filter(song => {
+  if(seenTrending.has(song.id)) return false
+  seenTrending.add(song.id)
+  return true
+})
 
 removeSkeletonSmooth()
 renderTrendingRow()
 }
 
 function loadFavorites(){
-favoriteData = songs.slice(0, 30)
-renderFavoriteRow()
+  const likedSet = new Set(likedSongs)
+  const likedPool = songs.filter(song => likedSet.has(song.id))
+
+  favoriteData = likedPool.length > 0
+    ? likedPool.slice(0, 30)
+    : smartSortSongs([...songs]).slice(0, 30)
+
+  renderFavoriteRow()
 }
 
 /* 
@@ -900,32 +914,29 @@ listenRow.appendChild(fragment)
 
 
 function renderTrendingRow(){
-if(!trendingRow) return
+  if(!trendingRow) return
 
-if(trendingPage === 1){
-trendingRow.innerHTML = ""
+  trendingRow.innerHTML = ""
+
+  const fragment = document.createDocumentFragment()
+
+  trendingData.forEach(song => {
+    let index = songs.findIndex(s => s.id === song.id)
+
+    if(index === -1){
+      if(!songs.some(s => s.id === song.id)){
+        songs.push(song)
+      }
+      index = songs.findIndex(s => s.id === song.id)
+    }
+
+    if(index !== -1){
+      fragment.appendChild(createSongCard(songs[index], index))
+    }
+  })
+
+  trendingRow.appendChild(fragment)
 }
-
-const fragment = document.createDocumentFragment()
-
-trendingData.forEach(song => {
-
-let index = songs.findIndex(s => s.id === song.id)
-
-if(index === -1){
-if(!songs.some(s => s.id === song.id)){
-songs.push(song)
-}
-index = songs.findIndex(s => s.id === song.id)
-}
-
-fragment.appendChild(createSongCard(songs[index], index))
-
-})
-
-trendingRow.appendChild(fragment)
-}
-
 
 
 function renderFavoriteRow(){
@@ -946,41 +957,6 @@ favoriteRow.appendChild(fragment)
 }
 
 
-
-/* 
-INFINITE SONG LOADER
- */
-
-const mainContent = document.querySelector(".main-content")
-
-let scrollTimeout = null
-
-mainContent.addEventListener("scroll", () => {
-
-if(scrollTimeout) return   //  prevents spam
-
-scrollTimeout = setTimeout(async () => {
-
-const scrollPosition =
-mainContent.scrollTop + mainContent.clientHeight
-
-const threshold =
-mainContent.scrollHeight - 200
-
-if(scrollPosition >= threshold){
-
-/*  EXTRA SAFETY */
-if(!isLoading && hasMore){
-await loadSongsFromAPI()
-}
-
-}
-
-scrollTimeout = null
-
-}, 200) //  throttle delay (tune: 150–300)
-
-})
 
 
 /* 
@@ -1239,16 +1215,26 @@ menu.classList.remove("active")
 /* SAVE TO LIBRARY */
 
 menu.querySelector(".save-library").onclick = (e)=>{
-e.stopPropagation()
+  e.stopPropagation()
 
-if(!likedSongs.includes(song.id)){
-likedSongs.push(song.id)
-setUserStorage("likedSongs", likedSongs)
-}
+  if(!likedSongs.includes(song.id)){
+    likedSongs.push(song.id)
+    setUserStorage("likedSongs", likedSongs)
 
-showToast("Saved to library")
+    
+    refreshLikedPage()
+    loadFavorites()
 
-menu.classList.remove("active")
+    if(currentPageName === "library"){
+      renderLibrary()
+    }
+
+    showToast("Saved to library")
+  }else{
+    showToast("Already in library")
+  }
+
+  menu.classList.remove("active")
 }
 
 /* REMOVE FROM QUEUE */
@@ -1495,6 +1481,9 @@ setUserStorage("recentSong", {
    cover: getValidCover(song.cover)
 })
 
+if(currentPageName === "home"){
+   loadHeroSong()
+}
 
 
 setUserStorage("lastPlayedId", song.id)
@@ -1862,18 +1851,24 @@ searchInput.style.opacity = 1
 /* START LOOP */
 startPlaceholderLoop()
 
-searchInput.addEventListener("input",()=>{
-if(!searchResults) return
+searchInput.addEventListener("input", ()=>{
+  if(!searchResults) return
 
-const query=searchInput.value.trim()
+  const query = searchInput.value.trim()
 
-if(query.length<2){
-searchResults.classList.remove("active")
-return
-}
+  clearTimeout(searchDebounceTimer)
 
-performSearch(query)
+  if(query.length < 2){
+    searchResults.classList.remove("active")
+    return
+  }
 
+  searchResults.classList.add("active")
+  searchContent.innerHTML = `<div style="padding:10px;color:#aaa;">Searching...</div>`
+
+  searchDebounceTimer = setTimeout(()=>{
+    performSearch(query)
+  }, 350)
 })
 
 searchInput.addEventListener("keydown", (e)=>{
@@ -1888,12 +1883,7 @@ searchInput.addEventListener("keydown", (e)=>{
 searchInput.addEventListener("focus", ()=>{
   renderRecentSearches()
   renderTrending()
-
-  if(searchInput.value.trim().length >= 2){
-    searchResults.classList.add("active")
-  }else{
-    searchResults.classList.add("active")
-  }
+  searchResults.classList.add("active")
 })
 
 
@@ -1910,12 +1900,28 @@ async function performSearch(query){
   if(!query) return
   if(!searchResults || !searchContent) return
 
+  const normalizedQuery = query.trim().toLowerCase()
+  const searchToken = ++latestSearchToken
+
   searchResults.classList.add("active")
   searchContent.innerHTML = `<div style="padding:10px;color:#aaa;">Searching...</div>`
 
   saveRecentSearch(query)
 
   try{
+    /* ===============================
+       1. LOCAL + LOADED SONG SEARCH
+    =============================== */
+    const localMatches = songs.filter(song => {
+      return (
+        song.title?.toLowerCase().includes(normalizedQuery) ||
+        song.artist?.toLowerCase().includes(normalizedQuery)
+      )
+    }).slice(0, 5)
+
+    /* ===============================
+       2. ONLINE API SEARCH
+    =============================== */
     const [tracksRes, artistsRes, albumsRes] = await Promise.all([
       fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${CLIENT_ID}&format=json&limit=5&search=${encodeURIComponent(query)}`),
       fetch(`https://api.jamendo.com/v3.0/artists/?client_id=${CLIENT_ID}&format=json&limit=3&search=${encodeURIComponent(query)}`),
@@ -1926,28 +1932,63 @@ async function performSearch(query){
     const artistsData = await artistsRes.json()
     const albumsData = await albumsRes.json()
 
+    /* ===============================
+       3. STALE RESPONSE PROTECTION
+    =============================== */
+    if(searchToken !== latestSearchToken){
+      return
+    }
+
     searchContent.innerHTML = ""
 
-    const hasTracks = tracksData?.results?.length > 0
-    const hasArtists = artistsData?.results?.length > 0
-    const hasAlbums = albumsData?.results?.length > 0
+    const apiTracks = tracksData?.results || []
+    const apiArtists = artistsData?.results || []
+    const apiAlbums = albumsData?.results || []
+
+    /* ===============================
+       4. MERGE + REMOVE DUPLICATES
+    =============================== */
+    const seenSongIds = new Set()
+
+    const mergedSongs = [
+      ...localMatches.map(song => ({
+        id: song.id,
+        name: song.title,
+        artist_name: song.artist,
+        album_image: song.cover,
+        audio: song.src,
+        tags: song.tags || [],
+        isLocal: !!song.isLocal
+      })),
+      ...apiTracks
+    ].filter(item => {
+      if(seenSongIds.has(item.id)) return false
+      seenSongIds.add(item.id)
+      return true
+    })
+
+    const hasTracks = mergedSongs.length > 0
+    const hasArtists = apiArtists.length > 0
+    const hasAlbums = apiAlbums.length > 0
 
     if(!hasTracks && !hasArtists && !hasAlbums){
       searchContent.innerHTML = `
-        <div style="padding:10px;color:#aaa;">
+        <div style="padding:12px;color:#aaa;">
           No results found for "<strong>${query}</strong>"
         </div>
       `
       return
     }
 
-    /* SONGS */
+    /* ===============================
+       SONGS
+    =============================== */
     if(hasTracks){
       const title = document.createElement("h4")
       title.innerText = "Songs"
       searchContent.appendChild(title)
 
-      tracksData.results.forEach(item=>{
+      mergedSongs.slice(0, 6).forEach(item=>{
         const div = document.createElement("div")
         div.className = "search-item"
 
@@ -1959,18 +2000,30 @@ async function performSearch(query){
           </div>
         `
 
-        div.onclick = ()=> navigateToSearchPage("songs", item.name)
+        div.onclick = ()=>{
+         const existingIndex = songs.findIndex(s => s.id === item.id)
+
+         if(existingIndex !== -1){
+            loadSong(existingIndex, true)
+            searchResults.classList.remove("active")
+            return
+         }
+
+         navigateToSearchPage("songs", item.name)
+      }
         searchContent.appendChild(div)
       })
     }
 
-    /* ARTISTS */
+    /* ===============================
+       ARTISTS
+    =============================== */
     if(hasArtists){
       const title = document.createElement("h4")
       title.innerText = "Artists"
       searchContent.appendChild(title)
 
-      artistsData.results.forEach(item=>{
+      apiArtists.forEach(item=>{
         const div = document.createElement("div")
         div.className = "search-item"
 
@@ -1984,13 +2037,15 @@ async function performSearch(query){
       })
     }
 
-    /* ALBUMS */
+    /* ===============================
+       ALBUMS
+    =============================== */
     if(hasAlbums){
       const title = document.createElement("h4")
       title.innerText = "Albums"
       searchContent.appendChild(title)
 
-      albumsData.results.forEach(item=>{
+      apiAlbums.forEach(item=>{
         const div = document.createElement("div")
         div.className = "search-item"
 
@@ -2006,6 +2061,11 @@ async function performSearch(query){
 
   }catch(err){
     console.error("Search error:", err)
+
+    if(searchToken !== latestSearchToken){
+      return
+    }
+
     searchContent.innerHTML = `
       <div style="padding:10px;color:#aaa;">
         Search failed. Please try again.
@@ -2019,44 +2079,37 @@ async function performSearch(query){
 
 
 
-/* 
-UPDATE LIKED PAGE
- */
-
-function updateLikedPage(){
-
-const likedGrid = document.getElementById("likedGrid")
-
-if(!likedGrid) return
-
-likedGrid.innerHTML = ""
-
-likedSongs.forEach(index => {
-
-likedGrid.appendChild(createSongCard(songs[index], index))
-
-})
-
-}
 
 /* 
 REFRESH LIKED PAGE
  */
 
 function refreshLikedPage(){
+  const likedGrid = document.getElementById("likedGrid")
+  if(!likedGrid) return
 
-const likedGrid = document.getElementById("likedGrid")
+  likedGrid.innerHTML = ""
 
-if(!likedGrid) return
+  if(likedSongs.length === 0){
+    likedGrid.innerHTML = `
+      <p style="color:#aaa;font-size:14px">
+        No liked songs yet
+      </p>
+    `
+    return
+  }
 
-likedGrid.innerHTML = ""
+  const fragment = document.createDocumentFragment()
 
-likedSongs.forEach(index => {
+  likedSongs.forEach(id => {
+    const index = songs.findIndex(song => song.id === id)
 
-likedGrid.appendChild(createSongCard(songs[index], index))
+    if(index !== -1){
+      fragment.appendChild(createSongCard(songs[index], index))
+    }
+  })
 
-})
-
+  likedGrid.appendChild(fragment)
 }
 
 /* 
@@ -2065,43 +2118,41 @@ LIKE SYSTEM
 
 
 likeBtn.onclick = () => {
+  const current = songs[currentSong]
+  if(!current) return
 
-const songId = songs[currentSong].id
+  const songId = current.id
 
-if(likedSongs.includes(songId)){
+  if(likedSongs.includes(songId)){
+    likedSongs = likedSongs.filter(id => id !== songId)
+    likeBtn.classList.remove("active")
+    showToast("Removed from liked songs")
+  }else{
+    likedSongs.push(songId)
+    likeBtn.classList.add("active")
+    showToast("Added to liked songs")
+  }
 
-likedSongs = likedSongs.filter(id => id !== songId)
+  setUserStorage("likedSongs", likedSongs)
 
-likeBtn.classList.remove("active")
+  
+  refreshLikedPage()
+  loadFavorites()
 
-showToast("Removed from liked songs")
+  if(currentPageName === "library"){
+    renderLibrary()
+  }
 
-}else{
+  if(currentPageName === "liked"){
+    refreshLikedPage()
+  }
 
-likedSongs.push(songId)
+  likeBtn.classList.add("animate")
 
-likeBtn.classList.add("active")
-
-showToast("Added to liked songs")
-
+  setTimeout(()=>{
+    likeBtn.classList.remove("animate")
+  },300)
 }
-
-/* save */
-
-setUserStorage("likedSongs", likedSongs)
-
-/* UPDATE LIKED PAGE IF OPEN */
-
-updateLikedPage()
-refreshLikedPage()
-
-}
-
-likeBtn.classList.add("animate")
-
-setTimeout(()=>{
-likeBtn.classList.remove("animate")
-},300)
 
 
 
@@ -2143,6 +2194,8 @@ const heroTitle = document.getElementById("heroTitle")
 const heroArtist = document.getElementById("heroArtist")
 const heroPlay = document.getElementById("heroPlay")
 const heroSection = document.querySelector(".hero-recommendation")
+
+if(!heroSection) return
 
 /* 
 🆕 NEW USER (NO HISTORY)
@@ -2222,8 +2275,10 @@ if(!window.location.hash){
 /*  APP BOOT */
 async function bootApp(){
   try{
+    bootPersistentSession()
     syncUserMusicState()
-    initTopNavbar()  
+    initTopNavbar()
+
     // preload songs once before first render
     if(songs.length === 0){
       await loadSongsFromAPI()
@@ -2233,6 +2288,8 @@ async function bootApp(){
 
     renderRecentSearches()
     renderTrending()
+    loadFavorites()
+    updateProfileUI()
     updatePlaybackBadge("online", true)
   }catch(err){
     console.error("BOOT ERROR:", err)
@@ -2637,7 +2694,11 @@ list.appendChild(label)
 }
 
 /*  */
-recentSearches.forEach(q=>{
+const DISPLAY_LIMIT = 3   
+
+recentSearches
+  .slice(0, DISPLAY_LIMIT)
+  .forEach(q=>{
 const item = document.createElement("div")
 item.className = "search-item"
 item.innerText = q
@@ -3443,12 +3504,67 @@ function syncUserMusicState(){
    recentSearches = getUserStorage("recentSearches", []) || []
 
    renderRecentSearches?.()
-   updateLikedPage?.()
+
    refreshLikedPage?.()
 }
 
 function saveUserProfile(){
    setUserStorage("userProfile", userProfile)
+}
+
+function hardRefreshUserScopedUI(){
+   // reload user-bound memory
+   syncUserMusicState()
+
+   // rebuild recommendation/favorites using current user's data
+   loadFavorites()
+
+   // refresh home hero if home is open
+   if(currentPageName === "home"){
+      loadHeroSong()
+      renderListenRow()
+      renderTrendingRow()
+      renderFavoriteRow()
+   }
+
+   // refresh liked/library/history/search/local pages if currently open
+   if(currentPageName === "liked"){
+      refreshLikedPage()
+   }
+
+   if(currentPageName === "library"){
+      renderLibrary()
+   }
+
+   if(currentPageName === "history"){
+      renderHistory()
+   }
+
+   if(currentPageName === "search"){
+      renderSearchPage()
+   }
+
+   if(currentPageName === "local"){
+      refreshLocalGrid()
+   }
+
+   // refresh search dropdown data
+   renderRecentSearches()
+   renderTrending()
+
+   // clear queue because queue may belong to previous user's listening session
+queue = []
+renderQueue()
+
+audio.pause()
+audio.src = ""
+currentSong = 0
+
+songName.textContent = "Song Title"
+artistName.textContent = "Artist"
+playerCover.src = ""
+musicPlayer.classList.remove("active")
+updatePlaybackBadge("online", true)
 }
 
 /* ACCOUNT STATE */
@@ -3537,6 +3653,7 @@ function startUserSession(user){
    saveCurrentSession()
    syncUserMusicState()
    updateProfileUI()
+   hardRefreshUserScopedUI()
 }
 
 function clearUserSession(){
@@ -3544,6 +3661,7 @@ function clearUserSession(){
    saveCurrentSession()
    syncUserMusicState()
    updateProfileUI()
+   hardRefreshUserScopedUI()
 }
 
 function resetAuthInputs(){
@@ -3655,7 +3773,7 @@ function initProfileSystem(){
       })
    }
 
-   bootPersistentSession()
+   
 }
 
 function switchAuthTab(type){
@@ -4270,8 +4388,9 @@ function handleAccountProfileImageUpload(e){
 /* ===============================
    AUTO INIT
 =============================== */
-initProfileSystem()
 
+initProfileSystem()
+updateProfileUI()
 /* ===============================
    GLOBAL CLOSE HANDLERS EXTENSION
 =============================== */
